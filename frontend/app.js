@@ -72,27 +72,61 @@ async function loadUsers() {
   }
 }
 
+let cachedServers = [];
+
+function initials(name) {
+  const s = String(name || "?").trim();
+  if (!s) return "?";
+  const parts = s.split(/[\s\-_]+/);
+  return ((parts[0] || "?")[0] + ((parts[1] || "")[0] || "")).toUpperCase() || "?";
+}
+
+function serverCard(s) {
+  const st = s.status || "created";
+  const game = s.game || "";
+  const env = s.env || {};
+  const mem = env.SERVER_MEMORY || env.MEMORY || s.memory || "";
+  const port = (s.ports && s.ports[0] && (s.ports[0].host || s.ports[0].container)) || env.SERVER_PORT || s.port || "";
+  const chips = [game ? "<span class='chip'>" + esc(game) + "</span>" : "",
+    mem ? "<span class='chip'>" + esc(String(mem)) + " RAM</span>" : "",
+    port ? "<span class='chip'>:" + esc(String(port)) + "</span>" : ""].join("");
+  return "<div class='srv'>" +
+    "<div class='srv-top'><div class='avatar'>" + esc(initials(s.name)) + "</div>" +
+    "<div class='srv-title'><b>" + esc(s.name) + "</b><span>" + esc(game) + "</span></div>" +
+    "<span class='badge " + esc(st) + "'>" + esc(st) + "</span></div>" +
+    "<div class='srv-meta'><code class='inline'>" + esc(s.id) + "</code></div>" +
+    (chips ? "<div class='chips'>" + chips + "</div>" : "") +
+    "<div class='srv-actions'><a class='btn small' href='/manage.html?id=" + encodeURIComponent(s.id) + "'>Manage</a>" +
+    "<button class='ghost small' data-act='start' data-id='" + esc(s.id) + "'>Start</button>" +
+    "<button class='ghost small' data-act='stop' data-id='" + esc(s.id) + "'>Stop</button>" +
+    "<button class='ghost small iconbtn' data-copy='" + esc(s.id) + "' title='Copy server ID'>Copy</button></div></div>";
+}
+
+function renderServerList() {
+  const list = $("serverList");
+  const q = ($("serverSearch") && $("serverSearch").value || "").trim().toLowerCase();
+  const rows = !q ? cachedServers : cachedServers.filter((s) =>
+    String(s.name || "").toLowerCase().includes(q) || String(s.game || "").toLowerCase().includes(q) || String(s.id || "").toLowerCase().includes(q));
+  $("serverCount").textContent = cachedServers.length + " server(s)" + (q ? " · " + rows.length + " match" : "");
+  list.innerHTML = rows.length ? rows.map(serverCard).join("")
+    : "<div class='empty'><div class='big'>&#127918;</div><b>No servers found</b><p class='muted'>Create your first server to get started.</p></div>";
+}
+
 async function loadServers() {
   const list = $("serverList");
+  list.innerHTML = "<div class='skel'></div><div class='skel'></div><div class='skel'></div>";
   try {
     const rows = await api("/api/servers");
-    $("serverCount").textContent = rows.length + " server(s)";
-    list.innerHTML = rows.length ? rows.map((s) =>
-      "<div class='card' style='margin:0'>" +
-      "<div class='row'><b>" + esc(s.name) + "</b><div class='spacer'></div>" +
-      "<span class='badge " + esc(s.status || "created") + "'>" + esc(s.status || "created") + "</span></div>" +
-      "<p class='muted' style='margin:8px 0'>" + esc(s.game || "") + " &middot; <code class='inline'>" + esc(s.id) + "</code></p>" +
-      "<div class='row'><a class='btn small' href='/manage.html?id=" + encodeURIComponent(s.id) + "'>Manage</a>" +
-      "<button class='ghost small' data-act='start' data-id='" + esc(s.id) + "'>Start</button>" +
-      "<button class='ghost small' data-act='stop' data-id='" + esc(s.id) + "'>Stop</button></div></div>"
-    ).join("") : "<p class='muted'>No servers yet. Create one to get started.</p>";
+    cachedServers = rows || [];
+    renderServerList();
   } catch (e) {
     if (e.status === 401) { logout(); return; }
-    list.innerHTML = "<p class='muted'>Failed to load servers: " + esc(e.message) + "</p>";
+    list.innerHTML = "<div class='empty'><b>Failed to load servers</b><p class='muted'>" + esc(e.message) + "</p></div>";
   }
 }
 
 async function power(id, act) {
+  if ((act === "stop" || act === "kill") && !window.confirm("Confirm " + act + " this server?")) return;
   try {
     await api("/api/servers/" + encodeURIComponent(id) + "/" + act, { method: "POST" });
     toast(act + " sent", "ok");
@@ -138,8 +172,8 @@ async function loadGames() {
     if (!wiz.sel) wiz.sel = games[0].id;
     grid.innerHTML = games.map((g) =>
       "<div class='gamecard" + (wiz.sel === g.id ? " sel" : "") + "' data-id='" + esc(g.id) + "' tabindex='0'>" +
-      "<b>" + esc(g.name || g.id) + "</b><code>" + esc(g.id) + "</code>" +
-      "<div class='muted' style='font-size:12px'>" + esc((g.image || "")) + "</div></div>"
+      "<b><span class='gicon'>" + esc(initials(g.name || g.id)) + "</span>" + esc(g.name || g.id) + "</b><code>" + esc(g.id) + "</code>" +
+      "<div class='gimg'>" + esc((g.image || "")) + "</div></div>"
     ).join("");
   } catch (e) {
     grid.innerHTML = "<p class='muted'>Failed to load games: " + esc(e.message) + "</p>";
@@ -256,9 +290,21 @@ function bind() {
     document.querySelectorAll(".gamecard").forEach((el) => el.classList.toggle("sel", el.dataset.id === wiz.sel));
   });
   $("serverList").addEventListener("click", (e) => {
+    const c = e.target.closest("button[data-copy]");
+    if (c) {
+      const v = c.dataset.copy || "";
+      if (navigator.clipboard) navigator.clipboard.writeText(v).then(() => toast("Copied: " + v, "ok")).catch(() => toast(v, ""));
+      else { window.prompt("Copy ID:", v); }
+      return;
+    }
     const b = e.target.closest("button[data-act]");
     if (b) power(b.dataset.id, b.dataset.act);
   });
+  const ss = $("serverSearch");
+  if (ss) ss.addEventListener("input", renderServerList);
+  const nt = $("navToggle");
+  if (nt) nt.addEventListener("click", () => document.body.classList.toggle("navopen"));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeWizard(); });
 }
 
 async function init() {

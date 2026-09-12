@@ -77,10 +77,15 @@ async function loadServer() {
   st.textContent = server.status || "created";
   st.className = "badge " + (server.status || "created");
   $("srvMeta").textContent = (server.game || "") + " · " + serverId;
+  const ss = $("sideStatus");
+  if (ss) ss.textContent = (server.name || serverId) + " · " + (server.status || "created");
+  const fm = $("footMeta");
+  if (fm) fm.textContent = (server.game || "") + " · " + serverId;
   $("settingsDump").textContent = JSON.stringify(server, null, 2);
 }
 
 async function power(act) {
+  if ((act === "stop" || act === "kill" || act === "restart") && !window.confirm("Confirm " + act + " this server?")) return;
   try {
     const r = await fetch("/api/servers/" + encodeURIComponent(serverId) + "/" + act, {
       method: "POST", headers: authHeaders(true),
@@ -100,13 +105,18 @@ async function power(act) {
 }
 
 /* ---- console ---- */
+function autoScrollOn() {
+  const t = $("autoScrollTgl");
+  return !t || t.checked;
+}
+
 function printLine(line) {
   const s = String(line);
   if (useTerm && term) { term.writeln(s.replace(/\x1b\[[0-9;]*m/g, "")); return; }
   const pre = $("console-fallback");
   pre.classList.remove("hidden");
   pre.textContent += (pre.textContent ? "\n" : "") + s;
-  pre.scrollTop = pre.scrollHeight;
+  if (autoScrollOn()) pre.scrollTop = pre.scrollHeight;
 }
 
 function initTerm() {
@@ -349,6 +359,7 @@ function bind() {
     }
     if (del) {
       e.preventDefault();
+      if (!window.confirm("Delete " + del.dataset.del + "?")) return;
       api("/api/servers/" + encodeURIComponent(serverId) + "/files/delete", {
         method: "POST", body: { path: del.dataset.del },
       }).then(() => { toast("Deleted", "ok"); listFiles(curPath); })
@@ -400,6 +411,7 @@ function bind() {
   });
   $("deleteBtn").addEventListener("click", async () => {
     if (!editingPath) { toast("Open a file first", "err"); return; }
+    if (!window.confirm("Delete " + editingPath + "?")) return;
     try {
       await api("/api/servers/" + encodeURIComponent(serverId) + "/files/delete", {
         method: "POST", body: { path: editingPath },
@@ -464,6 +476,7 @@ function bind() {
   $("schedBody").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-sched]");
     if (!b) return;
+    if (!window.confirm("Delete this schedule?")) return;
     try {
       await api("/api/servers/" + encodeURIComponent(serverId) + "/schedules/" + encodeURIComponent(b.dataset.sched), { method: "DELETE" });
       toast("Schedule deleted", "ok");
@@ -482,15 +495,25 @@ function bind() {
     } catch (e) { toast(e.message, "err"); }
   });
   $("backupRefresh").addEventListener("click", loadBackups);
+  const cp = $("copyIpBtn");
+  if (cp) cp.addEventListener("click", () => {
+    const v = serverId || window.location.host;
+    if (navigator.clipboard) navigator.clipboard.writeText(v).then(() => toast("Copied: " + v, "ok")).catch(() => toast(v, ""));
+    else window.prompt("Copy:", v);
+  });
+  const nt = $("navToggle");
+  if (nt) nt.addEventListener("click", () => document.body.classList.toggle("navopen"));
   $("backupBody").addEventListener("click", async (e) => {
     const r = e.target.closest("[data-restore]");
     const d = e.target.closest("[data-bdel]");
     if (r) {
+      if (!window.confirm("Restore backup " + r.dataset.restore + "? Current files will be overwritten.")) return;
       try {
         await api("/api/servers/" + encodeURIComponent(serverId) + "/backups/" + encodeURIComponent(r.dataset.restore) + "/restore", { method: "POST" });
         toast("Backup restored", "ok");
       } catch (err) { toast(err.message, "err"); }
     } else if (d) {
+      if (!window.confirm("Delete backup " + d.dataset.bdel + "?")) return;
       try {
         await api("/api/servers/" + encodeURIComponent(serverId) + "/backups/" + encodeURIComponent(d.dataset.bdel), { method: "DELETE" });
         toast("Backup deleted", "ok");

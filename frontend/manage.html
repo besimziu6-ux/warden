@@ -4,125 +4,160 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manage server - Game Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 </head>
 <body>
-<header class="topbar">
-  <a href="/" class="ghost btn small">&larr; Servers</a>
-  <div class="brand" id="srvTitle">Server</div>
-  <span class="badge" id="srvStatus">...</span>
-  <div class="spacer"></div>
-  <div class="userbox" id="userbox"></div>
-  <button class="ghost small" id="logoutBtn">Logout</button>
-</header>
-<div class="wrap">
-  <div class="card">
-    <div class="row" id="powerRow">
-      <button class="small" data-act="start">Start</button>
-      <button class="ghost small" data-act="stop">Stop</button>
-      <button class="ghost small" data-act="restart">Restart</button>
-      <button class="danger small" data-act="kill">Kill</button>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-mark">&#127918;</div><div>GamePanel<small>SERVER CONTROL</small></div></div>
+    <nav class="sidenav">
+      <div class="navlabel">Manage</div>
+      <a class="navlink" href="/">&#128202; All servers</a>
+      <a class="navlink active" href="#">&#9881; This server</a>
+      <a class="navlink" href="/health">&#10003; API health</a>
+    </nav>
+    <div class="side-foot">
+      <div class="status-card"><span class="dot"></span><span id="sideStatus">Loading server...</span></div>
+    </div>
+  </aside>
+  <div class="main-col">
+    <header class="topbar">
+      <button class="ghost small iconbtn" id="navToggle" type="button">&#9776;</button>
+      <a href="/" class="ghost btn small">&larr; Servers</a>
+      <div class="brand" id="srvTitle">Server</div>
+      <span class="badge" id="srvStatus">...</span>
       <div class="spacer"></div>
-      <span class="muted" id="srvMeta"></span>
-    </div>
-  </div>
-
-  <div class="tabs" id="tabs">
-    <button data-tab="console" class="active">Console</button>
-    <button data-tab="files">Files</button>
-    <button data-tab="players">Players</button>
-    <button data-tab="schedules">Schedules</button>
-    <button data-tab="backups">Backups</button>
-    <button data-tab="settings">Settings</button>
-  </div>
-
-  <section class="card tabpane active" id="pane-console">
-    <h3>Console</h3>
-    <div id="console-term"></div>
-    <pre id="console-fallback" class="hidden"></pre>
-    <div class="row" style="margin-top:8px">
-      <input id="consoleInput" placeholder="Type a command and press Enter" style="flex:1">
-      <button id="consoleSend">Send</button>
-      <button class="ghost" id="consoleClear">Clear</button>
-    </div>
-    <p class="muted" id="wsState">disconnected</p>
-  </section>
-
-  <section class="card tabpane" id="pane-files">
-    <h3>Files</h3>
-    <div class="crumb" id="crumb"></div>
-    <table><thead><tr><th>Name</th><th>Type</th><th>Size</th><th></th></tr></thead>
-    <tbody id="filesBody"></tbody></table>
-    <div class="row" style="margin-top:10px">
-      <input id="newFileName" placeholder="new file or dir path" style="flex:1">
-      <button class="ghost small" id="mkdirBtn">New dir</button>
-      <button class="ghost small" id="newFileBtn">New file</button>
-      <label class="btn ghost small" style="cursor:pointer">Upload<input type="file" id="uploadInput" class="hidden"></label>
-    </div>
-    <div id="editorBox" style="margin-top:12px">
-      <label for="editorPath">Editing: <code class="inline" id="editorPath">-</code></label>
-      <textarea id="editor"></textarea>
-      <div class="row" style="margin-top:8px">
-        <button class="small" id="saveFileBtn">Save</button>
-        <button class="ghost small" id="renameBtn">Rename</button>
-        <button class="danger small" id="deleteBtn">Delete</button>
+      <div class="userbox" id="userbox"></div>
+      <button class="ghost small" id="logoutBtn">Logout</button>
+    </header>
+    <div class="wrap">
+      <div class="card">
+        <div class="managehead">
+          <div style="flex:1;min-width:200px">
+            <span class="muted" id="srvMeta"></span>
+          </div>
+          <div class="row">
+            <button class="ghost small" id="copyIpBtn" type="button">Copy ID</button>
+          </div>
+        </div>
+        <div class="row" id="powerRow" style="margin-top:12px">
+          <button class="small" data-act="start">▶ Start</button>
+          <button class="ghost small" data-act="stop">⏸ Stop</button>
+          <button class="ghost small" data-act="restart">↻ Restart</button>
+          <button class="danger small" data-act="kill">✕ Kill</button>
+        </div>
       </div>
-    </div>
-  </section>
 
-  <section class="card tabpane" id="pane-players">
-    <h3>Players</h3>
-    <div class="row">
-      <button class="ghost small" id="playersRefresh">Refresh</button>
-      <div class="spacer"></div>
-      <input id="sayInput" placeholder="Broadcast message" style="max-width:260px">
-      <button class="ghost small" id="sayBtn">Say</button>
-    </div>
-    <table style="margin-top:8px"><thead><tr><th>Player</th><th></th></tr></thead>
-    <tbody id="playersBody"></tbody></table>
-    <div class="row" style="margin-top:10px">
-      <input id="cmdInput" placeholder="Raw server command" style="flex:1">
-      <button class="ghost small" id="cmdBtn">Run</button>
-    </div>
-  </section>
+      <div class="tabs" id="tabs">
+        <button data-tab="console" class="active">Console</button>
+        <button data-tab="files">Files</button>
+        <button data-tab="players">Players</button>
+        <button data-tab="schedules">Schedules</button>
+        <button data-tab="backups">Backups</button>
+        <button data-tab="settings">Settings</button>
+      </div>
 
-  <section class="card tabpane" id="pane-schedules">
-    <h3>Schedules</h3>
-    <table><thead><tr><th>Name</th><th>Cron</th><th>Action</th><th>Enabled</th><th></th></tr></thead>
-    <tbody id="schedBody"></tbody></table>
-    <h3 style="margin-top:14px">New schedule</h3>
-    <div class="row">
-      <input id="schedName" placeholder="name" style="flex:1">
-      <input id="schedCron" placeholder="cron, e.g. */5 * * * *" style="flex:1">
-      <select id="schedAction" style="max-width:160px">
-        <option value="start">start</option>
-        <option value="stop">stop</option>
-        <option value="restart">restart</option>
-        <option value="backup">backup</option>
-        <option value="command">command</option>
-      </select>
-    </div>
-    <label for="schedCmd">Command payload (only for action=command)</label>
-    <input id="schedCmd" placeholder="say hello">
-    <div class="row" style="margin-top:8px"><button class="small" id="schedCreate">Create schedule</button></div>
-  </section>
+      <section class="card tabpane active" id="pane-console">
+        <h3>Console</h3>
+        <div id="console-term"></div>
+        <pre id="console-fallback" class="hidden"></pre>
+        <div class="consolebar">
+          <input id="consoleInput" placeholder="Type a command and press Enter" style="flex:1;min-width:180px">
+          <button id="consoleSend">Send</button>
+          <button class="ghost" id="consoleClear">Clear</button>
+          <label class="checkline"><input type="checkbox" id="autoScrollTgl" checked> Auto-scroll</label>
+        </div>
+        <p class="muted" id="wsState">disconnected</p>
+      </section>
 
-  <section class="card tabpane" id="pane-backups">
-    <h3>Backups</h3>
-    <div class="row">
-      <input id="backupName" placeholder="backup label" style="flex:1;max-width:260px">
-      <button class="small" id="backupCreate">Create backup</button>
-      <button class="ghost small" id="backupRefresh">Refresh</button>
-    </div>
-    <table style="margin-top:8px"><thead><tr><th>Name</th><th>Size</th><th>Created</th><th></th></tr></thead>
-    <tbody id="backupBody"></tbody></table>
-  </section>
+      <section class="card tabpane" id="pane-files">
+        <h3>Files</h3>
+        <div class="crumb" id="crumb"></div>
+        <div class="tblwrap">
+        <table><thead><tr><th>Name</th><th>Type</th><th>Size</th><th></th></tr></thead>
+        <tbody id="filesBody"></tbody></table>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input id="newFileName" placeholder="new file or dir path" style="flex:1;min-width:160px">
+          <button class="ghost small" id="mkdirBtn">New dir</button>
+          <button class="ghost small" id="newFileBtn">New file</button>
+          <label class="btn ghost small" style="cursor:pointer">Upload<input type="file" id="uploadInput" class="hidden"></label>
+        </div>
+        <div id="editorBox" style="margin-top:12px">
+          <label for="editorPath">Editing: <code class="inline" id="editorPath">-</code></label>
+          <textarea id="editor"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="small" id="saveFileBtn">Save</button>
+            <button class="ghost small" id="renameBtn">Rename</button>
+            <button class="danger small" id="deleteBtn">Delete</button>
+          </div>
+        </div>
+      </section>
 
-  <section class="card tabpane" id="pane-settings">
-    <h3>Settings</h3>
-    <pre class="dump" id="settingsDump">loading...</pre>
-  </section>
+      <section class="card tabpane" id="pane-players">
+        <h3>Players</h3>
+        <div class="row">
+          <button class="ghost small" id="playersRefresh">↻ Refresh</button>
+          <div class="spacer"></div>
+          <input id="sayInput" placeholder="Broadcast message" style="max-width:260px">
+          <button class="ghost small" id="sayBtn">Say</button>
+        </div>
+        <div class="tblwrap" style="margin-top:8px">
+        <table><thead><tr><th>Player</th><th></th></tr></thead>
+        <tbody id="playersBody"></tbody></table>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input id="cmdInput" placeholder="Raw server command" style="flex:1;min-width:160px">
+          <button class="ghost small" id="cmdBtn">Run</button>
+        </div>
+      </section>
+
+      <section class="card tabpane" id="pane-schedules">
+        <h3>Schedules</h3>
+        <div class="tblwrap">
+        <table><thead><tr><th>Name</th><th>Cron</th><th>Action</th><th>Enabled</th><th></th></tr></thead>
+        <tbody id="schedBody"></tbody></table>
+        </div>
+        <h3 style="margin-top:14px">New schedule</h3>
+        <div class="row">
+          <input id="schedName" placeholder="name" style="flex:1;min-width:120px">
+          <input id="schedCron" placeholder="cron, e.g. */5 * * * *" style="flex:1;min-width:140px">
+          <select id="schedAction" style="max-width:160px">
+            <option value="start">start</option>
+            <option value="stop">stop</option>
+            <option value="restart">restart</option>
+            <option value="backup">backup</option>
+            <option value="command">command</option>
+          </select>
+        </div>
+        <label for="schedCmd">Command payload (only for action=command)</label>
+        <input id="schedCmd" placeholder="say hello">
+        <div class="row" style="margin-top:8px"><button class="small" id="schedCreate">Create schedule</button></div>
+      </section>
+
+      <section class="card tabpane" id="pane-backups">
+        <h3>Backups</h3>
+        <div class="row">
+          <input id="backupName" placeholder="backup label" style="flex:1;max-width:260px;min-width:140px">
+          <button class="small" id="backupCreate">Create backup</button>
+          <button class="ghost small" id="backupRefresh">↻ Refresh</button>
+        </div>
+        <div class="tblwrap" style="margin-top:8px">
+        <table><thead><tr><th>Name</th><th>Size</th><th>Created</th><th></th></tr></thead>
+        <tbody id="backupBody"></tbody></table>
+        </div>
+      </section>
+
+      <section class="card tabpane" id="pane-settings">
+        <h3>Settings</h3>
+        <pre class="dump" id="settingsDump">loading...</pre>
+      </section>
+      <div class="foot">GamePanel · <span id="footMeta"></span></div>
+    </div>
+  </div>
 </div>
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
