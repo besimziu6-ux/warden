@@ -1,3 +1,6 @@
+const path = require("path");
+const fs = require("fs");
+
 let Docker;
 try {
   Docker = require("dockerode");
@@ -9,6 +12,31 @@ let client = null;
 let mock = true;
 let checked = false;
 const states = new Map();
+
+// Isolation defaults applied to every game container.
+// Keeps one misbehaving server from taking down the host.
+const DEFAULT_LIMITS = {
+  Memory: 2 * 1024 * 1024 * 1024,
+  MemorySwap: 2 * 1024 * 1024 * 1024,
+  NanoCpus: 2 * 1000 * 1000 * 1000,
+  PidsLimit: 256,
+  User: "1000:1000",
+};
+
+function dataRoot() {
+  return process.env.DATA_ROOT || path.resolve(__dirname, "../../../data");
+}
+
+function limitsFor(server) {
+  const over = (server && server.limits) || {};
+  return {
+    Memory: over.Memory || over.memory || DEFAULT_LIMITS.Memory,
+    MemorySwap: over.MemorySwap || over.memorySwap || DEFAULT_LIMITS.MemorySwap,
+    NanoCpus: over.NanoCpus || over.nanoCpus || over.cpus ? Math.floor((over.NanoCpus || over.nanoCpus || over.cpus * 1e9)) : DEFAULT_LIMITS.NanoCpus,
+    PidsLimit: over.PidsLimit || over.pidsLimit || over.pids || DEFAULT_LIMITS.PidsLimit,
+    User: over.User || over.user || DEFAULT_LIMITS.User,
+  };
+}
 
 async function check() {
   if (checked) return !mock;
@@ -66,12 +94,32 @@ async function createServer(server, egg) {
     exposed[key] = {};
     bindings[key] = [{ HostPort: "" }];
   }
+  const limits = limitsFor(server);
+  const serverDir = path.join(dataRoot(), "servers", server.id);
+  try {
+    fs.mkdirSync(serverDir, { recursive: true });
+  } catch {
+    // best effort; daemon bind still attempted below
+  }
   const container = await client.createContainer({
     Image: egg.image,
     name: `panel-${server.id.slice(0, 12)}`,
     Env: env,
+    User: limits.User,
     ExposedPorts: exposed,
-    HostConfig: { PortBindings: bindings, AutoRemove: false },
+    HostConfig: {
+      PortBindings: bindings,
+      AutoRemove: false,
+      Privileged: false,
+      Memory: limits.Memory,
+      MemorySwap: limits.MemorySwap,
+      NanoCpus: limits.NanoCpus,
+      PidsLimit: limits.PidsLimit,
+      CapDrop: ["ALL"],
+      CapAdd: ["CHOWN", "SETUID", "SETGID"],
+      SecurityOpt: ["no-new-privileges:true"],
+      Binds: [`${serverDir}:/data:rw`],
+    },
   });
   states.set(server.id, "created");
   return container.id;
@@ -165,4 +213,6 @@ module.exports = {
   restart,
   kill,
   inspectStatus,
+  DEFAULT_LIMITS,
+  limitsFor,
 };

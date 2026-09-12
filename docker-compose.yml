@@ -1,0 +1,35 @@
+name: game-panel
+
+# Pinned per-egg game images (source of truth: backend/src/games/eggs.js).
+#   minecraft-java:    itzg/minecraft-server:latest
+#   minecraft-bedrock: itzg/minecraft-bedrock-server:latest
+#   cs2:               joedwards32/cs2:latest
+#   rust:              cm2network/rust:latest
+#   ark:               hermsi/ark-server:latest
+#   valheim:           lloesche/valheim-server:latest
+#   terraria:          ryshe/terraria:latest
+# Pull them with: bash scripts/install.sh (or docker pull <image>).
+# Game containers are created by backend/src/lib/docker.js with enforced
+# limits: 2G RAM (no swap beyond), 2 CPUs, 256 pids, Privileged=false,
+# CapDrop=ALL, no-new-privileges, User 1000:1000, per-server /data bind.
+
+services:
+  panel:
+    image: node:20-bookworm-slim
+    working_dir: /app/backend
+    command: ["node", "src/index.js"]
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "${PORT:-3000}"
+      DATA_ROOT: /app/data
+      JWT_SECRET: "${JWT_SECRET:-dev-secret-change-me}"
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./frontend:/app/frontend:ro
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
