@@ -2,6 +2,7 @@ const express = require("express");
 const { getEgg } = require("../games/eggs");
 const store = require("../lib/store");
 const docker = require("../lib/docker");
+const { tokenFromHeader, verifyPayload, findById } = require("../lib/auth");
 
 const router = express.Router();
 
@@ -24,6 +25,7 @@ router.post("/", async (req, res) => {
     image: egg.image,
     status: "created",
     containerId: null,
+    ownerId: ownerIdFor(req),
   });
 
   try {
@@ -40,6 +42,15 @@ router.get("/:id", (req, res) => {
   if (!server) return res.status(404).json({ error: "not found" });
   res.json(server);
 });
+
+function ownerIdFor(req) {
+  const token = tokenFromHeader(req);
+  if (!token) return null;
+  const payload = verifyPayload(token);
+  if (!payload) return null;
+  const user = findById(payload.sub);
+  return user ? user.id : null;
+}
 
 async function lifecycle(req, res, action) {
   const server = store.get(req.params.id);
