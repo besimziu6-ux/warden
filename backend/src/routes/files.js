@@ -215,3 +215,5 @@ router.post("/:id/files/upload", loadServer, (req, res) => {
 });
 
 module.exports = router;
+module.exports.safePath = safePath;
+module.exports.serverRoot = serverRoot;

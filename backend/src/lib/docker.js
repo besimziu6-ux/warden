@@ -39,6 +39,12 @@ function limitsFor(server) {
 }
 
 async function check() {
+  if (process.env.DOCKER_MOCK === "1") {
+    mock = true;
+    checked = true;
+    client = null;
+    return false;
+  }
   if (checked) return !mock;
   checked = true;
   if (!Docker) {
@@ -215,4 +221,11 @@ module.exports = {
   inspectStatus,
   DEFAULT_LIMITS,
   limitsFor,
+  getMockState,
+  _resetForTests() {
+    states.clear();
+    checked = false;
+    mock = true;
+    client = null;
+  },
 };
