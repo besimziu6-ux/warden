@@ -2,6 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const serversRouter = require("./routes/servers");
 const authRouter = require("./routes/auth");
+const filesRouter = require("./routes/files");
+const playersRouter = require("./routes/players");
+const schedulesRouter = require("./routes/schedules");
+const backupsRouter = require("./routes/backups");
 const { requireAuth, requireAdmin } = require("./lib/auth");
 const { attachConsole } = require("./routes/console");
 const { listEggs } = require("./games/eggs");
@@ -24,11 +28,20 @@ app.get("/api/games", (req, res) => {
 app.use("/api/auth", authRouter);
 app.get("/api/users", requireAuth, requireAdmin, authRouter.listUsers);
 app.use("/api/servers", serversRouter);
+app.use("/api/servers", filesRouter);
+app.use("/api/servers", playersRouter);
+app.use("/api/servers", schedulesRouter);
+app.use("/api/servers", backupsRouter);
 
 let httpServer = null;
 
 if (require.main === module) {
   docker.check().finally(() => {
+    try {
+      require("./routes/schedules").initSchedules();
+    } catch {
+      return;
+    }
     httpServer = app.listen(PORT, () => {
       console.log(`game-panel backend on :${PORT} (mock=${docker.isMock()})`);
     });

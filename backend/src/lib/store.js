@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
-const DATA_FILE = path.resolve(__dirname, "../../../../data/servers.json");
+const DATA_FILE = path.resolve(__dirname, "../../../data/servers.json");
 
 function ensureFile() {
   const dir = path.dirname(DATA_FILE);
