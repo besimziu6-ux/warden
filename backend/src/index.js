@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const serversRouter = require("./routes/servers");
 const authRouter = require("./routes/auth");
@@ -32,6 +33,12 @@ app.use("/api/servers", filesRouter);
 app.use("/api/servers", playersRouter);
 app.use("/api/servers", schedulesRouter);
 app.use("/api/servers", backupsRouter);
+
+const FRONTEND_DIR = path.resolve(__dirname, "../../frontend");
+app.use(express.static(FRONTEND_DIR));
+app.get("/manage", (req, res) => {
+  res.sendFile(path.join(FRONTEND_DIR, "manage.html"));
+});
 
 let httpServer = null;
 

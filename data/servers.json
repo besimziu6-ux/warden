@@ -1,1 +1,27 @@
-[]
+[
+  {
+    "id": "9c362a09-d956-4ca9-bb81-16223eb28c1e",
+    "status": "stopped",
+    "createdAt": "2026-09-12T23:34:37.074Z",
+    "updatedAt": "2026-09-12T23:34:37.235Z",
+    "name": "e2e-test",
+    "game": "minecraft-java",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "PAPER",
+      "VERSION": "LATEST",
+      "SERVER_MEMORY": "2G",
+      "ONLINE_MODE": "TRUE",
+      "DIFFICULTY": "normal"
+    },
+    "ports": [
+      {
+        "container": 25565,
+        "protocol": "tcp"
+      }
+    ],
+    "image": "itzg/minecraft-server:latest",
+    "containerId": "mock-9c362a09-d956-4ca9-bb81-16223eb28c1e",
+    "ownerId": "61cfa516-e3b0-4845-9415-a7368261d815"
+  }
+]

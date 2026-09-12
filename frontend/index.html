@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Panel</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Game<span>Panel</span></div>
+  <div class="spacer"></div>
+  <div class="userbox" id="userbox"></div>
+  <button class="ghost small hidden" id="logoutBtn">Logout</button>
+</header>
+<div class="wrap">
+
+  <section class="card" id="authView">
+    <div class="authsplit">
+      <div>
+        <h2>Login</h2>
+        <form id="loginForm">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" name="username" autocomplete="username" required minlength="3">
+          <label for="loginPass">Password</label>
+          <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
+          <div class="row" style="margin-top:12px">
+            <button type="submit">Login</button>
+          </div>
+        </form>
+      </div>
+      <div>
+        <h2>Register</h2>
+        <p class="muted">First account becomes admin.</p>
+        <form id="registerForm">
+          <label for="regUser">Username</label>
+          <input id="regUser" name="username" autocomplete="username" required minlength="3">
+          <label for="regPass">Password</label>
+          <input id="regPass" name="password" type="password" autocomplete="new-password" required minlength="6">
+          <div class="row" style="margin-top:12px">
+            <button type="submit" class="ghost">Create account</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="mainView" class="hidden">
+    <div class="card">
+      <div class="row">
+        <h2 style="margin:0">Servers</h2>
+        <div class="spacer"></div>
+        <button class="ghost small" id="refreshBtn">Refresh</button>
+        <button class="small" id="openWizardBtn">+ Create server</button>
+      </div>
+      <p class="muted" id="serverCount"></p>
+      <div class="grid servers" id="serverList"></div>
+    </div>
+
+    <div class="card hidden" id="usersCard">
+      <h2>Users (admin)</h2>
+      <table>
+        <thead><tr><th>Username</th><th>Role</th><th>ID</th><th>Created</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<div class="modal-back" id="wizardBack">
+  <div class="modal">
+    <div class="steps">
+      <span id="st1" class="on">1. Game</span>
+      <span id="st2">2. Settings</span>
+      <span id="st3">3. Review</span>
+    </div>
+    <div id="wstep1">
+      <h3>Pick a game</h3>
+      <div class="gamegrid" id="gameGrid"><p class="muted">Loading games...</p></div>
+    </div>
+    <div id="wstep2" class="hidden">
+      <h3>Server settings</h3>
+      <div id="eggMeta" class="muted"></div>
+      <label for="srvName">Server name</label>
+      <input id="srvName" placeholder="my-server">
+      <label>Environment variables</label>
+      <div id="envRows"></div>
+      <div class="row"><button class="ghost small" id="addEnvBtn" type="button">+ Add var</button></div>
+      <label for="memHint">Memory / ports</label>
+      <div id="portsBox" class="muted"></div>
+    </div>
+    <div id="wstep3" class="hidden">
+      <h3>Review</h3>
+      <pre class="dump" id="reviewBox"></pre>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost" id="wBack">Back</button>
+      <button class="ghost" id="wClose">Cancel</button>
+      <div class="spacer"></div>
+      <button id="wNext">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>
