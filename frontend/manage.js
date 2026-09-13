@@ -5,8 +5,11 @@ const qs = new URLSearchParams(window.location.search);
 const serverId = qs.get("id") || "";
 
 const store = {
-  get token() { return localStorage.getItem("gp_token") || ""; },
-  set token(v) { v ? localStorage.setItem("gp_token", v) : localStorage.removeItem("gp_token"); },
+  get token() { return localStorage.getItem("warden_token") || localStorage.getItem("gp_token") || ""; },
+  set token(v) {
+    if (v) localStorage.setItem("warden_token", v);
+    else { localStorage.removeItem("warden_token"); localStorage.removeItem("gp_token"); }
+  },
 };
 
 let server = null;
@@ -15,21 +18,66 @@ let editingPath = "";
 let ws = null;
 let term = null;
 let useTerm = false;
+let reconnectTimer = null;
 
 function toast(msg, kind) {
   const box = $("toast");
   if (!box) return;
+  while (box.children.length >= 4) box.firstChild.remove();
   const el = document.createElement("div");
   el.className = "toast" + (kind ? " " + kind : "");
   el.textContent = String(msg);
   box.appendChild(el);
-  setTimeout(() => el.remove(), 4500);
+  setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 250); }, 4200);
+}
+
+function fmtSize(n) {
+  if (n == null) return "-";
+  const v = Number(n);
+  if (!Number.isFinite(v)) return String(n);
+  if (v < 1024) return v + " B";
+  if (v < 1024 * 1024) return (v / 1024).toFixed(1) + " KB";
+  if (v < 1024 * 1024 * 1024) return (v / 1024 / 1024).toFixed(1) + " MB";
+  return (v / 1024 / 1024 / 1024).toFixed(2) + " GB";
+}
+
+function fmtDate(s) {
+  if (!s) return "-";
+  try {
+    const d = new Date(s);
+    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return String(s); }
+}
+
+function setWsState(text, live) {
+  const el = $("wsState");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("live", !!live);
 }
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
+}
+
+function initials(name) {
+  const s = String(name || "?").trim();
+  if (!s) return "?";
+  const parts = s.split(/[\s\-_]+/);
+  return ((parts[0] || "?")[0] + ((parts[1] || "")[0] || "")).toUpperCase() || "?";
+}
+
+function avatarClass(game) {
+  const g = String(game || "");
+  if (g.includes("minecraft")) return "mc";
+  if (g === "cs2") return "cs";
+  if (g === "rust") return "rust";
+  if (g === "ark") return "ark";
+  if (g === "valheim") return "val";
+  if (g === "terraria") return "ter";
+  return "";
 }
 
 function authHeaders(json) {
@@ -61,6 +109,52 @@ function needLogin() {
 }
 
 /* ---- header / power ---- */
+function paintServer() {
+  if (!server) return;
+  const st = server.status || "created";
+  try { localStorage.setItem("warden_last", serverId); } catch { /* noop */ }
+  document.title = (server.name || "Server") + " — Warden";
+  $("srvTitle").textContent = server.name || serverId;
+  const cn = $("crumbName");
+  if (cn) cn.textContent = server.name || serverId;
+  const icon = $("srvIcon");
+  if (icon) {
+    icon.textContent = initials(server.name);
+    icon.className = "srv-icon " + avatarClass(server.game);
+  }
+  const pill = $("srvStatus");
+  pill.textContent = st;
+  pill.className = "pill " + st;
+  const ports = (server.ports || []).map((p) => p.container + "/" + (p.protocol || "tcp")).join(", ") || "—";
+  const meta = $("srvMeta");
+  if (meta) meta.innerHTML = esc(server.game || "") + " · <code class='inline'>" + esc(serverId.slice(0, 8)) + "</code> · <code class='inline'>" + esc(ports) + "</code>";
+  const ss = $("sideStatus");
+  if (ss) ss.textContent = (server.name || serverId) + " · " + st;
+  const sub = $("sideSub");
+  if (sub) sub.textContent = (server.game || "") + " · " + ports;
+  const dot = $("sideDot");
+  if (dot) dot.classList.toggle("dim", st !== "running");
+  const fm = $("footMeta");
+  if (fm) fm.textContent = (server.game || "") + " · " + serverId;
+  const sd = $("settingsDump");
+  if (sd) sd.textContent = JSON.stringify(server, null, 2);
+  const rs = $("resState");
+  if (rs) rs.textContent = st.charAt(0).toUpperCase() + st.slice(1);
+  const rd = $("resDot");
+  if (rd) rd.classList.toggle("dim", st !== "running");
+  const rsb = $("resStateBar");
+  if (rsb) {
+    rsb.style.width = st === "running" ? "100%" : st === "error" ? "100%" : "6%";
+    rsb.parentElement.className = "bar " + (st === "running" ? "green" : st === "error" ? "red" : "");
+  }
+  const mem = (server.env && (server.env.SERVER_MEMORY || server.env.MEMORY)) || "2G";
+  const rm = $("resMem");
+  if (rm) rm.innerHTML = esc(String(mem)) + " <small>limit</small>";
+  const cpu = (server.env && (server.env.CPUS || server.env.CPU)) || "2 vCPU";
+  const rc = $("resCpu");
+  if (rc) rc.innerHTML = esc(String(cpu)) + " <small>limit</small>";
+}
+
 async function loadServer() {
   try {
     server = await fetch("/api/servers/" + encodeURIComponent(serverId), { headers: authHeaders() }).then(async (r) => {
@@ -72,20 +166,27 @@ async function loadServer() {
     toast("Could not load server: " + e.message, "err");
     return;
   }
-  $("srvTitle").textContent = server.name || serverId;
-  const st = $("srvStatus");
-  st.textContent = server.status || "created";
-  st.className = "badge " + (server.status || "created");
-  $("srvMeta").textContent = (server.game || "") + " · " + serverId;
-  const ss = $("sideStatus");
-  if (ss) ss.textContent = (server.name || serverId) + " · " + (server.status || "created");
-  const fm = $("footMeta");
-  if (fm) fm.textContent = (server.game || "") + " · " + serverId;
-  $("settingsDump").textContent = JSON.stringify(server, null, 2);
+  paintServer();
+  loadSideServers();
+}
+
+async function loadSideServers() {
+  try {
+    const rows = await api("/api/servers");
+    const box = $("sideServers");
+    if (!box) return;
+    box.innerHTML = rows.slice(0, 10).map((s) =>
+      "<a class='navlink" + (s.id === serverId ? " active" : "") + "' href='/manage.html?id=" + encodeURIComponent(s.id) + "' title='" + esc(s.name) + "'>" +
+      "<span class='dot" + (s.status === "running" ? "" : " dim") + "' style='margin:0'></span>" +
+      "<span style='overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>" + esc(s.name) + "</span></a>"
+    ).join("") || "<span class='muted' style='font-size:12px'>No servers</span>";
+  } catch { /* noop */ }
 }
 
 async function power(act) {
   if ((act === "stop" || act === "kill" || act === "restart") && !window.confirm("Confirm " + act + " this server?")) return;
+  const btns = document.querySelectorAll("#powerRow button");
+  btns.forEach((b) => { b.disabled = true; });
   try {
     const r = await fetch("/api/servers/" + encodeURIComponent(serverId) + "/" + act, {
       method: "POST", headers: authHeaders(true),
@@ -95,13 +196,14 @@ async function power(act) {
       return d;
     });
     toast(act + " ok", "ok");
-    if (r && r.status) {
+    if (r && r.status && server) {
       server.status = r.status;
-      const st = $("srvStatus");
-      st.textContent = r.status;
-      st.className = "badge " + r.status;
+      paintServer();
+    } else {
+      await loadServer();
     }
   } catch (e) { toast(e.message, "err"); }
+  finally { btns.forEach((b) => { b.disabled = false; }); }
 }
 
 async function deleteServer() {
@@ -109,6 +211,7 @@ async function deleteServer() {
   try {
     await api("/api/servers/" + encodeURIComponent(serverId), { method: "DELETE" });
     toast("Server deleted", "ok");
+    try { localStorage.removeItem("warden_last"); } catch { /* noop */ }
     window.location.href = "/";
   } catch (e) {
     if (e.status === 401) { needLogin(); return; }
@@ -128,13 +231,19 @@ function printLine(line) {
   const pre = $("console-fallback");
   pre.classList.remove("hidden");
   pre.textContent += (pre.textContent ? "\n" : "") + s;
+  if (pre.textContent.length > 500000) pre.textContent = pre.textContent.slice(-500000);
   if (autoScrollOn()) pre.scrollTop = pre.scrollHeight;
 }
 
 function initTerm() {
   try {
     if (typeof Terminal !== "undefined") {
-      term = new Terminal({ convertEol: true, fontSize: 13, theme: { background: "#0a0c10" } });
+      term = new Terminal({
+        convertEol: true,
+        fontSize: 13,
+        fontFamily: "ui-monospace, Menlo, Consolas, monospace",
+        theme: { background: "#04070d", foreground: "#c9e8d4", cursor: "#3b82f6", selectionBackground: "rgba(59,130,246,.35)" },
+      });
       term.open($("console-term"));
       term.onData((d) => {
         if (d.includes("\r") || d.includes("\n")) sendConsole($("consoleInput").value);
@@ -151,22 +260,26 @@ function initTerm() {
 function connectConsole() {
   if (!serverId) return;
   try { if (ws) ws.close(); } catch { /* noop */ }
-  $("wsState").textContent = "connecting...";
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  setWsState("connecting…", false);
   let url;
   try {
     url = (window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + window.location.host +
       "/ws/servers/" + encodeURIComponent(serverId) + "/console?token=" + encodeURIComponent(store.token);
-  } catch { $("wsState").textContent = "connect failed"; return; }
+  } catch { setWsState("connect failed", false); return; }
   try {
     ws = new WebSocket(url);
   } catch {
-    $("wsState").textContent = "connect failed";
+    setWsState("connect failed", false);
     return;
   }
-  ws.onopen = () => { $("wsState").textContent = "connected"; };
+  ws.onopen = () => setWsState("connected · live", true);
   ws.onmessage = (ev) => printLine(typeof ev.data === "string" ? ev.data : "(binary)");
-  ws.onerror = () => { $("wsState").textContent = "error (check login)"; };
-  ws.onclose = () => { $("wsState").textContent = "disconnected"; };
+  ws.onerror = () => setWsState("error (check login)", false);
+  ws.onclose = () => {
+    setWsState("disconnected — retrying…", false);
+    reconnectTimer = setTimeout(() => { if (document.querySelector("#pane-console.active")) connectConsole(); }, 4000);
+  };
 }
 
 function sendConsole(text) {
@@ -198,23 +311,31 @@ async function listFiles(path) {
   }
 }
 
+function fileIcon(f) {
+  if (f.type === "dir") return "📁";
+  const n = String(f.name || "").toLowerCase();
+  if (n.endsWith(".jar") || n.endsWith(".zip") || n.endsWith(".tgz") || n.endsWith(".gz")) return "📦";
+  if (n.endsWith(".log") || n.endsWith(".txt") || n.endsWith(".yml") || n.endsWith(".yaml") || n.endsWith(".json") || n.endsWith(".properties") || n.endsWith(".conf") || n.endsWith(".cfg")) return "📄";
+  return "📄";
+}
+
 function renderFiles(entries) {
   const crumb = $("crumb");
   const parts = curPath ? curPath.split("/") : [];
-  let html = "<button class='ghost small' data-p=''>root</button>";
+  let html = "<button class='ghost small' data-p='' type='button'>root</button>";
   parts.forEach((p, i) => {
     const sub = parts.slice(0, i + 1).join("/");
-    html += "<span class='muted'>/</span><button class='ghost small' data-p='" + esc(sub) + "'>" + esc(p) + "</button>";
+    html += "<span class='muted'>/</span><button class='ghost small' data-p='" + esc(sub) + "' type='button'>" + esc(p) + "</button>";
   });
   crumb.innerHTML = html;
   const body = $("filesBody");
-  const up = curPath ? "<tr><td><a href='#' data-up>..</a></td><td>dir</td><td></td><td></td></tr>" : "";
+  const up = curPath ? "<tr><td><a href='#' data-up>⬆ ..</a></td><td></td><td></td><td></td></tr>" : "";
   body.innerHTML = up + entries.map((f) =>
-    "<tr><td>" + (f.type === "dir"
+    "<tr><td><span class='fname'><span class='fic'>" + fileIcon(f) + "</span>" + (f.type === "dir"
       ? "<a href='#' data-dir='" + esc(f.path) + "'>" + esc(f.name) + "/</a>"
-      : "<a href='#' data-file='" + esc(f.path) + "'>" + esc(f.name) + "</a>") + "</td>" +
-    "<td>" + esc(f.type) + "</td><td>" + (f.size == null ? "-" : esc(f.size)) + "</td>" +
-    "<td><button class='ghost small' data-del='" + esc(f.path) + "'>del</button></td></tr>"
+      : "<a href='#' data-file='" + esc(f.path) + "'>" + esc(f.name) + "</a>") + "</span></td>" +
+    "<td class='muted'>" + esc(fmtSize(f.size)) + "</td><td class='muted'>" + esc(fmtDate(f.mtime)) + "</td>" +
+    "<td><button class='ghost small' data-del='" + esc(f.path) + "' type='button'>Delete</button></td></tr>"
   ).join("") || (up + "<tr><td colspan='4' class='muted'>Empty directory</td></tr>");
 }
 
@@ -250,12 +371,14 @@ async function loadPlayers() {
   try {
     const d = await api("/api/servers/" + encodeURIComponent(serverId) + "/players");
     const rows = d.players || [];
+    const cp = $("countPlayers");
+    if (cp) cp.textContent = String(rows.length);
     body.innerHTML = rows.length ? rows.map((p) => {
       const name = typeof p === "string" ? p : (p.name || p.username || JSON.stringify(p));
-      return "<tr><td>" + esc(name) + "</td><td><div class='row'>" +
-        "<button class='ghost small' data-kick='" + esc(name) + "'>Kick</button>" +
-        "<button class='ghost small' data-ban='" + esc(name) + "'>Ban</button>" +
-        "<button class='ghost small' data-op='" + esc(name) + "'>Op</button></div></td></tr>";
+      return "<tr><td><span class='fname'><span class='fic'>🎮</span>" + esc(name) + "</span></td><td><div class='row'>" +
+        "<button class='ghost small' data-kick='" + esc(name) + "' type='button'>Kick</button>" +
+        "<button class='ghost small' data-ban='" + esc(name) + "' type='button'>Ban</button>" +
+        "<button class='ghost small' data-op='" + esc(name) + "' type='button'>Op</button></div></td></tr>";
     }).join("") : "<tr><td colspan='2' class='muted'>No players online" + (d.mock ? " (mock)" : "") + "</td></tr>";
   } catch (e) {
     if (e.status === 401) { needLogin(); return; }
@@ -277,11 +400,13 @@ async function playerAct(kind, player) {
 async function loadSchedules() {
   try {
     const rows = await api("/api/servers/" + encodeURIComponent(serverId) + "/schedules");
+    const el = $("countSched");
+    if (el) el.textContent = String(rows.length);
     $("schedBody").innerHTML = rows.length ? rows.map((s) =>
-      "<tr><td>" + esc(s.name) + "</td><td><code class='inline'>" + esc(s.cron) + "</code></td>" +
-      "<td>" + esc(s.action) + "</td><td>" + (s.enabled ? "yes" : "no") + "</td>" +
-      "<td><button class='danger small' data-sched='" + esc(s.id) + "'>Delete</button></td></tr>"
-    ).join("") : "<tr><td colspan='5' class='muted'>No schedules</td></tr>";
+      "<tr><td><b>" + esc(s.name) + "</b></td><td><code class='inline'>" + esc(s.cron) + "</code></td>" +
+      "<td><span class='chip'>" + esc(s.action) + "</span></td><td>" + (s.enabled ? "<span class='pill running'>on</span>" : "<span class='pill stopped'>off</span>") + "</td>" +
+      "<td><button class='danger small' data-sched='" + esc(s.id) + "' type='button'>Delete</button></td></tr>"
+    ).join("") : "<tr><td colspan='5' class='muted'>No schedules — e.g. daily restart <code class='inline'>0 4 * * *</code></td></tr>";
   } catch (e) {
     if (e.status === 401) { needLogin(); return; }
     $("schedBody").innerHTML = "<tr><td colspan='5' class='muted'>" + esc(e.message) + "</td></tr>";
@@ -331,12 +456,14 @@ async function downloadBackup(backupId) {
 async function loadBackups() {
   try {
     const rows = await api("/api/servers/" + encodeURIComponent(serverId) + "/backups");
+    const el = $("countBackups");
+    if (el) el.textContent = String(rows.length);
     $("backupBody").innerHTML = rows.length ? rows.map((b) =>
-      "<tr><td>" + esc(b.name) + "</td><td>" + esc(b.size) + "</td><td>" + esc(b.createdAt || "") + "</td>" +
-      "<td><div class='row'><button class='ghost small' data-dl='" + esc(b.id) + "'>Download</button>" +
-      "<button class='ghost small' data-restore='" + esc(b.id) + "'>Restore</button>" +
-      "<button class='danger small' data-bdel='" + esc(b.id) + "'>Delete</button></div></td></tr>"
-    ).join("") : "<tr><td colspan='4' class='muted'>No backups</td></tr>";
+      "<tr><td><b>" + esc(b.name) + "</b></td><td class='muted'>" + esc(fmtSize(b.size)) + "</td><td class='muted'>" + esc(fmtDate(b.createdAt)) + "</td>" +
+      "<td><div class='row'><button class='ghost small' data-dl='" + esc(b.id) + "' type='button'>Download</button>" +
+      "<button class='ghost small' data-restore='" + esc(b.id) + "' type='button'>Restore</button>" +
+      "<button class='danger small' data-bdel='" + esc(b.id) + "' type='button'>Delete</button></div></td></tr>"
+    ).join("") : "<tr><td colspan='4' class='muted'>No backups yet</td></tr>";
   } catch (e) {
     if (e.status === 401) { needLogin(); return; }
     $("backupBody").innerHTML = "<tr><td colspan='4' class='muted'>" + esc(e.message) + "</td></tr>";
@@ -510,7 +637,7 @@ function bind() {
     try {
       const r = await api("/api/servers/" + encodeURIComponent(serverId) + "/players/command", { method: "POST", body: { command: c } });
       $("cmdInput").value = "";
-      toast("Command sent" + (r && r.output ? ": " + String(r.output).slice(0, 120) : ""), "ok");
+      toast("Command sent" + (r && r.response ? ": " + String(r.response).slice(0, 120) : ""), "ok");
     } catch (e) { toast(e.message, "err"); }
   });
 
@@ -527,7 +654,10 @@ function bind() {
   });
 
   $("backupCreate").addEventListener("click", async () => {
+    const btn = $("backupCreate");
     try {
+      btn.disabled = true;
+      btn.textContent = "Creating…";
       await api("/api/servers/" + encodeURIComponent(serverId) + "/backups", {
         method: "POST", body: { name: $("backupName").value.trim() || "manual" },
       });
@@ -535,6 +665,7 @@ function bind() {
       toast("Backup created", "ok");
       loadBackups();
     } catch (e) { toast(e.message, "err"); }
+    finally { btn.disabled = false; btn.textContent = "Create backup"; }
   });
   $("backupRefresh").addEventListener("click", loadBackups);
   const cp = $("copyIpBtn");
@@ -545,6 +676,8 @@ function bind() {
   });
   const nt = $("navToggle");
   if (nt) nt.addEventListener("click", () => document.body.classList.toggle("navopen"));
+  const ov = $("navOverlay");
+  if (ov) ov.addEventListener("click", () => document.body.classList.remove("navopen"));
   $("backupBody").addEventListener("click", async (e) => {
     const dl = e.target.closest("[data-dl]");
     const r = e.target.closest("[data-restore]");
@@ -579,13 +712,22 @@ async function init() {
   try {
     const me = await api("/api/auth/me");
     const ub = $("userbox");
-    if (ub) ub.textContent = me.username + " (" + me.role + ")";
+    if (ub) ub.textContent = me.username + " · " + me.role;
+    const ta = $("topAva");
+    if (ta) ta.textContent = (me.username || "?")[0].toUpperCase();
+    const sa = $("sideAva");
+    if (sa) sa.textContent = (me.username || "?")[0].toUpperCase();
+    const sn = $("sideUname");
+    if (sn) sn.textContent = me.username || "—";
   } catch { needLogin(); return; }
   bind();
   initTerm();
   await loadServer();
   connectConsole();
   listFiles("");
+  loadPlayers();
+  loadSchedules();
+  loadBackups();
 }
 
 document.addEventListener("DOMContentLoaded", init);

@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "game-panel API",
+    "title": "Warden API",
     "version": "0.1.0",
     "description": "Self-hosted game server panel. Bearer JWT from /api/auth/* goes in `Authorization: Bearer <token>`. The live console is a WebSocket (see /ws/servers/{id}/console)."
   },

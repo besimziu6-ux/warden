@@ -1,4 +1,4 @@
-# Contributing to game-panel
+# Contributing to Warden
 
 Thanks for helping out. This guide covers the local setup, test loop, and
 what a good pull request looks like.

@@ -3,88 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Panel</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Warden — Game Server Panel</title>
+<meta name="description" content="Warden is a self-hosted game server panel. Deploy, start and manage Docker-backed game servers.">
 <link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M16 5 7 9v7c0 5 3.8 8.4 9 11 5.2-2.6 9-6 9-11V9l-9-4Z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='14.5' r='2.4' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="logo"><div class="logo-mark">&#127918;</div><div>GamePanel<small>SERVER CONTROL</small></div></div>
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="layout" id="authedLayout" style="display:none">
+  <aside class="sidebar" aria-label="Primary">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6.5v5.2c0 4 3 6.9 7.5 9.3 4.5-2.4 7.5-5.3 7.5-9.3V6.5L12 3Z"/><circle cx="12" cy="11" r="2"/></svg>
+      </div>
+      <div class="brand-name">WARDEN<small>GAME PANEL</small></div>
+    </div>
     <nav class="sidenav">
-      <div class="navlabel">Manage</div>
-      <a class="navlink active" href="/">&#128202; Servers</a>
-      <a class="navlink" href="/health">&#10003; API health</a>
-      <div class="navlabel">Resources</div>
-      <a class="navlink" href="https://docs.docker.com/" target="_blank" rel="noopener">Docker docs</a>
-      <a class="navlink" href="/manage.html">&#9881; Last server</a>
+      <div class="nav-label">General</div>
+      <a class="navlink active" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="navlink" href="/health">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        API health
+      </a>
+      <a class="navlink" href="https://docs.docker.com/" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+        Documentation
+      </a>
+      <div class="nav-label">Your servers</div>
+      <div class="side-servers" id="sideServers"><span class="muted" style="font-size:12px;padding:0 10px">No servers yet</span></div>
     </nav>
     <div class="side-foot">
-      <div class="status-card"><span class="dot"></span>Panel online<br><span class="muted" style="font-size:11px">Dark gaming theme v2</span></div>
+      <div class="node-card"><span class="dot" id="sideDot"></span><span id="sideNodeText">Local node · checking…</span></div>
+      <div class="user-chip"><div class="ava" id="sideAva">?</div><div style="flex:1;min-width:0"><b id="sideUname">—</b><span id="sideRole">—</span></div><button class="ghost small iconbtn" id="logoutBtnSide" type="button" title="Log out" aria-label="Log out">⏻</button></div>
     </div>
   </aside>
-  <div class="main-col">
+  <div class="main">
     <header class="topbar">
-      <button class="ghost small iconbtn" id="navToggle" type="button">&#9776;</button>
-      <div class="brand">Game<span>Panel</span></div>
-      <input class="search" id="serverSearch" placeholder="Search servers..." autocomplete="off">
+      <button class="ghost small iconbtn" id="navToggle" type="button" aria-label="Toggle navigation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="crumbs"><a href="/">Home</a><span class="sep">/</span><b>Dashboard</b></div>
       <div class="spacer"></div>
-      <div class="userbox" id="userbox"></div>
-      <button class="ghost small hidden" id="logoutBtn">Logout</button>
+      <input class="search" id="serverSearch" placeholder="Search servers…" autocomplete="off" aria-label="Search servers">
+      <button class="ghost small iconbtn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+      </button>
+      <button class="small" id="openWizardBtn" type="button">+ Create</button>
+      <button class="avatar-btn" id="avatarBtn" type="button" title="Account">?</button>
+      <button class="ghost small hidden" id="logoutBtn" type="button">Log out</button>
     </header>
-    <div class="wrap">
-
-      <section class="card" id="authView">
-        <div class="authhero">
-          <h2>Host game servers in minutes</h2>
-          <p class="muted" style="margin:0">Log in to deploy, start and manage Docker-backed game servers with live console, files, players and backups.</p>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Dashboard</h1>
+          <p id="serverCount">Your game servers at a glance.</p>
         </div>
-        <div class="authsplit">
-          <div>
-            <h2>Login</h2>
-            <form id="loginForm">
-              <label for="loginUser">Username</label>
-              <input id="loginUser" name="username" autocomplete="username" required minlength="3">
-              <label for="loginPass">Password</label>
-              <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
-              <div class="row" style="margin-top:12px">
-                <button type="submit">Login</button>
-              </div>
-            </form>
-          </div>
-          <div>
-            <h2>Register</h2>
-            <p class="muted">First account becomes admin.</p>
-            <form id="registerForm">
-              <label for="regUser">Username</label>
-              <input id="regUser" name="username" autocomplete="username" required minlength="3">
-              <label for="regPass">Password</label>
-              <input id="regPass" name="password" type="password" autocomplete="new-password" required minlength="6">
-              <div class="row" style="margin-top:12px">
-                <button type="submit" class="ghost">Create account</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </section>
+      </div>
 
-      <section id="mainView" class="hidden">
-        <div class="hero">
-          <div>
-            <h1>Your <span class="grad">servers</span></h1>
-            <p class="muted" id="serverCount"></p>
-          </div>
-          <div class="row">
-            <button class="ghost small" id="refreshBtn">↻ Refresh</button>
-            <button class="small" id="openWizardBtn">+ Create server</button>
-          </div>
-        </div>
-        <div class="grid servers" id="serverList"></div>
+      <div class="stat-strip" id="statStrip">
+        <div class="stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/></svg></div><div><b id="statTotal">0</b><span>Total servers</span></div></div>
+        <div class="stat"><div class="ic green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14l-3-3"/></svg></div><div><b id="statRunning">0</b><span>Running</span></div></div>
+        <div class="stat"><div class="ic red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></div><div><b id="statStopped">0</b><span>Stopped</span></div></div>
+        <div class="stat"><div class="ic amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div><b id="statUsers">–</b><span>Users</span></div></div>
+      </div>
 
-        <div class="card hidden" id="usersCard" style="margin-top:16px">
-          <h2>Users (admin)</h2>
+      <section id="mainView">
+        <div class="card">
+          <div class="card-head"><h2>Servers</h2><span class="sub" id="serverSub"></span><div class="spacer"></div><button class="ghost small" id="refreshBtn2" type="button">Refresh</button></div>
+          <div class="card-pad"><div class="server-list" id="serverList"></div></div>
+        </div>
+
+        <div class="card hidden" id="usersCard">
+          <div class="card-head"><h2>Users</h2><span class="sub">admin only</span></div>
           <div class="tblwrap">
           <table>
             <thead><tr><th>Username</th><th>Role</th><th>ID</th><th>Created</th></tr></thead>
@@ -93,47 +86,99 @@
           </div>
         </div>
       </section>
-      <div class="foot">GamePanel · Docker-powered game hosting</div>
+      <div class="foot">Warden · self-hosted game hosting · local node</div>
+    </div>
+  </div>
+</div>
+
+<div class="auth-wrap" id="authView" style="display:none">
+  <div class="card auth-card">
+    <div class="auth-side">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6.5v5.2c0 4 3 6.9 7.5 9.3 4.5-2.4 7.5-5.3 7.5-9.3V6.5L12 3Z"/><circle cx="12" cy="11" r="2"/></svg>
+        </div>
+        <div class="brand-name">WARDEN<small>GAME PANEL</small></div>
+      </div>
+      <h2>Your servers,<br><span>under watch.</span></h2>
+      <p class="muted" style="margin:0;font-size:13.5px">Docker-backed game servers with live console, files, players, backups and schedules.</p>
+      <ul class="auth-feats">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>7 game eggs</b> with pinned images and sane defaults</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Isolated containers</b> — memory, CPU and pid limits</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Live console</b> over WebSocket with history</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Backups + cron</b> restarts, commands and snapshots</span></li>
+      </ul>
+      <div class="auth-ver" id="authVer">warden · local node</div>
+    </div>
+    <div class="auth-forms">
+      <div class="auth-tabs" role="tablist">
+        <button type="button" id="tabLogin" class="active">Log in</button>
+        <button type="button" id="tabRegister">Register</button>
+      </div>
+      <div id="paneLogin">
+        <form id="loginForm">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" name="username" autocomplete="username" required minlength="3" placeholder="admin">
+          <label for="loginPass">Password</label>
+          <input id="loginPass" name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+          <div class="row" style="margin-top:14px">
+            <button type="submit" style="flex:1">Log in</button>
+          </div>
+        </form>
+      </div>
+      <div id="paneRegister" class="hidden">
+        <form id="registerForm">
+          <label for="regUser">Username</label>
+          <input id="regUser" name="username" autocomplete="username" required minlength="3" placeholder="pick a name">
+          <label for="regPass">Password</label>
+          <input id="regPass" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="8+ characters">
+          <div class="row" style="margin-top:14px">
+            <button type="submit" class="ghost" style="flex:1">Create account</button>
+          </div>
+        </form>
+      </div>
+      <p class="auth-note">First account becomes admin. Store a strong <code class="inline">JWT_SECRET</code> in <code class="inline">.env</code>.</p>
     </div>
   </div>
 </div>
 
 <div class="modal-back" id="wizardBack">
-  <div class="modal" role="dialog" aria-modal="true">
-    <div class="steps">
-      <span id="st1" class="on">1. Game</span>
-      <span id="st2">2. Settings</span>
-      <span id="st3">3. Review</span>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Create server">
+    <div class="modal-head"><h3>Create server</h3><div class="spacer"></div><button class="ghost small iconbtn" id="wCloseX" type="button" aria-label="Close">✕</button></div>
+    <div class="modal-body">
+      <div class="steps">
+        <span id="st1" class="on"><b>Step 1</b>Game</span>
+        <span id="st2"><b>Step 2</b>Details</span>
+        <span id="st3"><b>Step 3</b>Review</span>
+      </div>
+      <div id="wstep1">
+        <div class="gamegrid" id="gameGrid"><p class="muted">Loading games…</p></div>
+      </div>
+      <div id="wstep2" class="hidden">
+        <div id="eggMeta" class="muted" style="font-size:12.5px"></div>
+        <label for="srvName">Server name</label>
+        <input id="srvName" placeholder="my-server" maxlength="100">
+        <label>Environment variables</label>
+        <div id="envRows"></div>
+        <div class="row"><button class="ghost small" id="addEnvBtn" type="button">+ Add variable</button></div>
+        <label for="portsBox">Limits / ports</label>
+        <div id="portsBox" class="muted" style="font-size:12.5px"></div>
+      </div>
+      <div id="wstep3" class="hidden">
+        <pre class="dump" id="reviewBox"></pre>
+        <p class="muted" style="font-size:12.5px">Containers launch isolated: 2G RAM · 2 CPUs · 256 pids · user 1000:1000 · one <code class="inline">/data</code> bind.</p>
+      </div>
     </div>
-    <div id="wstep1">
-      <h3>Pick a game</h3>
-      <div class="gamegrid" id="gameGrid"><p class="muted">Loading games...</p></div>
-    </div>
-    <div id="wstep2" class="hidden">
-      <h3>Server settings</h3>
-      <div id="eggMeta" class="muted"></div>
-      <label for="srvName">Server name</label>
-      <input id="srvName" placeholder="my-server">
-      <label>Environment variables</label>
-      <div id="envRows"></div>
-      <div class="row"><button class="ghost small" id="addEnvBtn" type="button">+ Add var</button></div>
-      <label for="memHint">Memory / ports</label>
-      <div id="portsBox" class="muted"></div>
-    </div>
-    <div id="wstep3" class="hidden">
-      <h3>Review</h3>
-      <pre class="dump" id="reviewBox"></pre>
-    </div>
-    <div class="row" style="margin-top:16px">
-      <button class="ghost" id="wBack">Back</button>
-      <button class="ghost" id="wClose">Cancel</button>
+    <div class="modal-foot">
+      <button class="ghost" id="wBack" type="button">Back</button>
+      <button class="ghost" id="wClose" type="button">Cancel</button>
       <div class="spacer"></div>
-      <button id="wNext">Next</button>
+      <button id="wNext" type="button">Next</button>
     </div>
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" aria-live="polite"></div>
 <script src="/app.js"></script>
 </body>
 </html>

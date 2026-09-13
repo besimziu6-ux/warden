@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command installer for game-panel.
+# One-command installer for Warden.
 # Usage:
 #   bash scripts/install.sh            # full install
 #   bash scripts/install.sh --check    # verify setup without changing anything

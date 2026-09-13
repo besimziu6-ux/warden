@@ -67,7 +67,7 @@ if (require.main === module) {
       return;
     }
     httpServer = app.listen(PORT, () => {
-      console.log(`game-panel backend on :${PORT} (mock=${docker.isMock()})`);
+      console.log(`warden backend on :${PORT} (mock=${docker.isMock()})`);
     });
     attachConsole(httpServer);
   });

@@ -3,167 +3,230 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manage server - Game Panel</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Server — Warden</title>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M16 5 7 9v7c0 5 3.8 8.4 9 11 5.2-2.6 9-6 9-11V9l-9-4Z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='14.5' r='2.4' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="logo"><div class="logo-mark">&#127918;</div><div>GamePanel<small>SERVER CONTROL</small></div></div>
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="layout">
+  <aside class="sidebar" aria-label="Primary">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6.5v5.2c0 4 3 6.9 7.5 9.3 4.5-2.4 7.5-5.3 7.5-9.3V6.5L12 3Z"/><circle cx="12" cy="11" r="2"/></svg>
+      </div>
+      <div class="brand-name">WARDEN<small>GAME PANEL</small></div>
+    </div>
     <nav class="sidenav">
-      <div class="navlabel">Manage</div>
-      <a class="navlink" href="/">&#128202; All servers</a>
-      <a class="navlink active" href="#">&#9881; This server</a>
-      <a class="navlink" href="/health">&#10003; API health</a>
+      <div class="nav-label">General</div>
+      <a class="navlink" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <div class="nav-label">This server</div>
+      <div class="side-servers" id="sideServers"></div>
+      <div class="nav-label">System</div>
+      <a class="navlink" href="/health">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        API health
+      </a>
     </nav>
     <div class="side-foot">
-      <div class="status-card"><span class="dot"></span><span id="sideStatus">Loading server...</span></div>
+      <div class="node-card"><span class="dot" id="sideDot"></span><span id="sideStatus">Loading…</span></div>
+      <div class="user-chip"><div class="ava" id="sideAva">?</div><div style="flex:1;min-width:0"><b id="sideUname">—</b><span id="sideSub">—</span></div></div>
     </div>
   </aside>
-  <div class="main-col">
+  <div class="main">
     <header class="topbar">
-      <button class="ghost small iconbtn" id="navToggle" type="button">&#9776;</button>
-      <a href="/" class="ghost btn small">&larr; Servers</a>
-      <div class="brand" id="srvTitle">Server</div>
-      <span class="badge" id="srvStatus">...</span>
+      <button class="ghost small iconbtn" id="navToggle" type="button" aria-label="Toggle navigation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="crumbs"><a href="/">Home</a><span class="sep">/</span><b id="crumbName">Server</b></div>
       <div class="spacer"></div>
-      <div class="userbox" id="userbox"></div>
-      <button class="ghost small" id="logoutBtn">Logout</button>
+      <div class="user-chip" style="padding:5px 10px 5px 5px"><div class="ava" id="topAva">?</div><span class="uname muted" id="userbox" style="font-size:12.5px"></span></div>
+      <button class="ghost small" id="logoutBtn" type="button">Log out</button>
     </header>
-    <div class="wrap">
+    <div class="content">
       <div class="card">
-        <div class="managehead">
-          <div style="flex:1;min-width:200px">
-            <span class="muted" id="srvMeta"></span>
+        <div class="server-header">
+          <div class="srv-icon" id="srvIcon">?</div>
+          <div class="titles">
+            <h1><span id="srvTitle">Loading…</span><span class="pill" id="srvStatus">…</span></h1>
+            <div class="addr"><span id="srvMeta"></span><button class="ghost small iconbtn" id="copyIpBtn" type="button" title="Copy server ID" aria-label="Copy server ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
-          <div class="row">
-            <button class="ghost small" id="copyIpBtn" type="button">Copy ID</button>
+          <div class="power-actions" id="powerRow">
+            <button class="small pwr-start" data-act="start" type="button"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Start</button>
+            <button class="small pwr-restart" data-act="restart" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>Restart</button>
+            <button class="small pwr-stop" data-act="stop" type="button"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Stop</button>
+            <button class="small pwr-kill" data-act="kill" type="button">Kill</button>
           </div>
-        </div>
-        <div class="row" id="powerRow" style="margin-top:12px">
-          <button class="small" data-act="start">▶ Start</button>
-          <button class="ghost small" data-act="stop">⏸ Stop</button>
-          <button class="ghost small" data-act="restart">↻ Restart</button>
-          <button class="danger small" data-act="kill">✕ Kill</button>
-          <button class="danger small" id="deleteServerBtn" type="button">Delete</button>
         </div>
       </div>
 
-      <div class="tabs" id="tabs">
-        <button data-tab="console" class="active">Console</button>
-        <button data-tab="files">Files</button>
-        <button data-tab="players">Players</button>
-        <button data-tab="schedules">Schedules</button>
-        <button data-tab="backups">Backups</button>
-        <button data-tab="settings">Settings</button>
+      <div class="res-grid">
+        <div class="res-card"><div class="lbl"><span>State</span><span class="dot" id="resDot"></span></div><div class="big" id="resState">—</div><div class="bar green"><i id="resStateBar" style="width:0%"></i></div></div>
+        <div class="res-card"><div class="lbl"><span>Memory limit</span><span class="muted" id="resMemPct"></span></div><div class="big" id="resMem">—</div><div class="bar"><i id="resMemBar" style="width:8%"></i></div></div>
+        <div class="res-card"><div class="lbl"><span>CPU limit</span><span class="muted" id="resCpuPct"></span></div><div class="big" id="resCpu">—</div><div class="bar amber"><i id="resCpuBar" style="width:12%"></i></div></div>
+      </div>
+
+      <div class="subnav" id="tabs" role="tablist">
+        <button data-tab="console" class="active" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg>
+          Console</button>
+        <button data-tab="files" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+          Files</button>
+        <button data-tab="players" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Players <span class="count" id="countPlayers">–</span></button>
+        <button data-tab="schedules" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Schedules <span class="count" id="countSched">–</span></button>
+        <button data-tab="backups" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+          Backups <span class="count" id="countBackups">–</span></button>
+        <button data-tab="settings" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          Settings</button>
       </div>
 
       <section class="card tabpane active" id="pane-console">
-        <h3>Console</h3>
-        <div id="console-term"></div>
-        <pre id="console-fallback" class="hidden"></pre>
-        <div class="consolebar">
-          <input id="consoleInput" placeholder="Type a command and press Enter" style="flex:1;min-width:180px">
-          <button id="consoleSend">Send</button>
-          <button class="ghost" id="consoleClear">Clear</button>
-          <label class="checkline"><input type="checkbox" id="autoScrollTgl" checked> Auto-scroll</label>
+        <div class="card-head">
+          <div class="term-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          <h3>Console</h3>
+          <div class="spacer"></div>
+          <span id="wsState">disconnected</span>
         </div>
-        <p class="muted" id="wsState">disconnected</p>
+        <div class="card-pad">
+          <div id="console-term"></div>
+          <pre id="console-fallback" class="hidden"></pre>
+          <div class="consolebar">
+            <span class="prompt">❯</span>
+            <input id="consoleInput" placeholder="Type a command and press Enter…" autocomplete="off" spellcheck="false" aria-label="Console command">
+            <button id="consoleSend" type="button">Send</button>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost small" id="consoleClear" type="button">Clear view</button>
+            <label class="checkline"><input type="checkbox" id="autoScrollTgl" checked> Auto-scroll</label>
+            <div class="spacer"></div>
+            <span class="muted" style="font-size:12px">History persists to <code class="inline">console.log</code></span>
+          </div>
+        </div>
       </section>
 
       <section class="card tabpane" id="pane-files">
-        <h3>Files</h3>
-        <div class="crumb" id="crumb"></div>
-        <div class="tblwrap">
-        <table><thead><tr><th>Name</th><th>Type</th><th>Size</th><th></th></tr></thead>
-        <tbody id="filesBody"></tbody></table>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <input id="newFileName" placeholder="new file or dir path" style="flex:1;min-width:160px">
-          <button class="ghost small" id="mkdirBtn">New dir</button>
-          <button class="ghost small" id="newFileBtn">New file</button>
-          <label class="btn ghost small" style="cursor:pointer">Upload<input type="file" id="uploadInput" class="hidden"></label>
-        </div>
-        <div id="editorBox" style="margin-top:12px">
-          <label for="editorPath">Editing: <code class="inline" id="editorPath">-</code></label>
-          <textarea id="editor"></textarea>
-          <div class="row" style="margin-top:8px">
-            <button class="small" id="saveFileBtn">Save</button>
-            <button class="ghost small" id="renameBtn">Rename</button>
-            <button class="danger small" id="deleteBtn">Delete</button>
+        <div class="card-head"><h3>File manager</h3><span class="sub">jailed to this server</span></div>
+        <div class="card-pad">
+          <div class="crumb" id="crumb"></div>
+          <div class="toolbar">
+            <input id="newFileName" placeholder="new file or dir path…" style="flex:1;min-width:160px">
+            <button class="ghost small" id="mkdirBtn" type="button">New dir</button>
+            <button class="ghost small" id="newFileBtn" type="button">New file</button>
+            <label class="btn ghost small" style="cursor:pointer">Upload<input type="file" id="uploadInput" class="hidden"></label>
+          </div>
+          <div class="card" style="margin:0;box-shadow:none">
+            <div class="tblwrap">
+            <table><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th style="width:110px"></th></tr></thead>
+            <tbody id="filesBody"></tbody></table>
+            </div>
+          </div>
+          <div id="editorBox" style="margin-top:14px">
+            <label for="editor">Editing: <code class="inline" id="editorPath">-</code></label>
+            <textarea id="editor" spellcheck="false" placeholder="Open a file to edit…"></textarea>
+            <div class="row" style="margin-top:8px">
+              <button class="small" id="saveFileBtn" type="button">Save</button>
+              <button class="ghost small" id="renameBtn" type="button">Rename</button>
+              <button class="danger small" id="deleteBtn" type="button">Delete</button>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="card tabpane" id="pane-players">
-        <h3>Players</h3>
-        <div class="row">
-          <button class="ghost small" id="playersRefresh">↻ Refresh</button>
-          <div class="spacer"></div>
-          <input id="sayInput" placeholder="Broadcast message" style="max-width:260px">
-          <button class="ghost small" id="sayBtn">Say</button>
-        </div>
-        <div class="tblwrap" style="margin-top:8px">
-        <table><thead><tr><th>Player</th><th></th></tr></thead>
-        <tbody id="playersBody"></tbody></table>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <input id="cmdInput" placeholder="Raw server command" style="flex:1;min-width:160px">
-          <button class="ghost small" id="cmdBtn">Run</button>
+        <div class="card-head"><h3>Players</h3><span class="sub">RCON or mock</span><div class="spacer"></div><button class="ghost small" id="playersRefresh" type="button">Refresh</button></div>
+        <div class="card-pad">
+          <div class="toolbar">
+            <input id="sayInput" placeholder="Broadcast message…" style="max-width:280px">
+            <button class="ghost small" id="sayBtn" type="button">Broadcast</button>
+          </div>
+          <div class="card" style="margin:0;box-shadow:none">
+            <div class="tblwrap">
+            <table><thead><tr><th>Player</th><th style="width:230px"></th></tr></thead>
+            <tbody id="playersBody"></tbody></table>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <input id="cmdInput" placeholder="Raw server command…" style="flex:1;min-width:160px">
+            <button class="ghost small" id="cmdBtn" type="button">Run</button>
+          </div>
         </div>
       </section>
 
       <section class="card tabpane" id="pane-schedules">
-        <h3>Schedules</h3>
-        <div class="tblwrap">
-        <table><thead><tr><th>Name</th><th>Cron</th><th>Action</th><th>Enabled</th><th></th></tr></thead>
-        <tbody id="schedBody"></tbody></table>
+        <div class="card-head"><h3>Schedules</h3><span class="sub">cron jobs</span></div>
+        <div class="card-pad">
+          <div class="card" style="margin:0 0 14px;box-shadow:none">
+            <div class="tblwrap">
+            <table><thead><tr><th>Name</th><th>Cron</th><th>Action</th><th>Enabled</th><th style="width:90px"></th></tr></thead>
+            <tbody id="schedBody"></tbody></table>
+            </div>
+          </div>
+          <h3 style="margin:0 0 4px;font-size:13.5px">New schedule</h3>
+          <div class="row">
+            <input id="schedName" placeholder="name" style="flex:1;min-width:120px">
+            <input id="schedCron" placeholder="cron, e.g. */5 * * * *" style="flex:1;min-width:140px">
+            <select id="schedAction" style="max-width:170px">
+              <option value="start">start</option>
+              <option value="stop">stop</option>
+              <option value="restart">restart</option>
+              <option value="backup">backup</option>
+              <option value="command">command</option>
+            </select>
+          </div>
+          <label for="schedCmd">Command payload (only for action=command)</label>
+          <input id="schedCmd" placeholder="say hello">
+          <div class="row" style="margin-top:10px"><button class="small" id="schedCreate" type="button">Create schedule</button></div>
         </div>
-        <h3 style="margin-top:14px">New schedule</h3>
-        <div class="row">
-          <input id="schedName" placeholder="name" style="flex:1;min-width:120px">
-          <input id="schedCron" placeholder="cron, e.g. */5 * * * *" style="flex:1;min-width:140px">
-          <select id="schedAction" style="max-width:160px">
-            <option value="start">start</option>
-            <option value="stop">stop</option>
-            <option value="restart">restart</option>
-            <option value="backup">backup</option>
-            <option value="command">command</option>
-          </select>
-        </div>
-        <label for="schedCmd">Command payload (only for action=command)</label>
-        <input id="schedCmd" placeholder="say hello">
-        <div class="row" style="margin-top:8px"><button class="small" id="schedCreate">Create schedule</button></div>
       </section>
 
       <section class="card tabpane" id="pane-backups">
-        <h3>Backups</h3>
-        <div class="row">
-          <input id="backupName" placeholder="backup label" style="flex:1;max-width:260px;min-width:140px">
-          <button class="small" id="backupCreate">Create backup</button>
-          <button class="ghost small" id="backupRefresh">↻ Refresh</button>
-        </div>
-        <div class="tblwrap" style="margin-top:8px">
-        <table><thead><tr><th>Name</th><th>Size</th><th>Created</th><th></th></tr></thead>
-        <tbody id="backupBody"></tbody></table>
+        <div class="card-head"><h3>Backups</h3><span class="sub">retention: 10 per server</span><div class="spacer"></div><button class="ghost small" id="backupRefresh" type="button">Refresh</button></div>
+        <div class="card-pad">
+          <div class="row" style="margin-bottom:12px">
+            <input id="backupName" placeholder="backup label…" style="flex:1;max-width:260px;min-width:140px">
+            <button class="small" id="backupCreate" type="button">Create backup</button>
+          </div>
+          <div class="card" style="margin:0;box-shadow:none">
+            <div class="tblwrap">
+            <table><thead><tr><th>Name</th><th>Size</th><th>Created</th><th style="width:250px"></th></tr></thead>
+            <tbody id="backupBody"></tbody></table>
+            </div>
+          </div>
         </div>
       </section>
 
       <section class="card tabpane" id="pane-settings">
-        <h3>Settings</h3>
-        <pre class="dump" id="settingsDump">loading...</pre>
-        <div class="row" style="margin-top:12px">
-          <button class="danger small" id="deleteServerBtn2" type="button">Delete server</button>
+        <div class="card-head"><h3>Settings</h3><span class="sub">danger zone below</span></div>
+        <div class="card-pad">
+          <pre class="dump" id="settingsDump">loading…</pre>
+          <div class="card" style="margin:14px 0 0;box-shadow:none;border-color:var(--red-line)">
+            <div class="card-pad">
+              <b style="color:#fb7185">Danger zone</b>
+              <p class="muted" style="font-size:12.5px;margin:6px 0 12px">Stops the container and deletes all server data, backups and schedules. Cannot be undone.</p>
+              <div class="row">
+                <button class="danger small" id="deleteServerBtn" type="button">Delete server</button>
+                <button class="danger small" id="deleteServerBtn2" type="button">Delete server</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-      <div class="foot">GamePanel · <span id="footMeta"></span></div>
+      <div class="foot">Warden · <span id="footMeta"></span></div>
     </div>
   </div>
 </div>
-<div id="toast"></div>
+<div id="toast" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="/manage.js"></script>
 </body>

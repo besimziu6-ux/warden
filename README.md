@@ -1,6 +1,6 @@
-# game-panel
+# Warden
 
-Self-hosted game server panel. Create servers from per-game eggs, manage files,
+Self-hosted game server panel (formerly game-panel). Create servers from per-game eggs, manage files,
 watch the live console over WebSocket, handle players via RCON, and schedule
 restarts and backups. Runs with Docker in production and degrades to a mock
 driver for development without a Docker daemon.

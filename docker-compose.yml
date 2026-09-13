@@ -1,4 +1,4 @@
-name: game-panel
+name: warden
 
 # Pinned per-egg game images (source of truth: backend/src/games/eggs.js).
 #   minecraft-java:    itzg/minecraft-server:latest
