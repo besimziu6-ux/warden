@@ -2,30 +2,64 @@ const express = require("express");
 const { getEgg } = require("../games/eggs");
 const store = require("../lib/store");
 const docker = require("../lib/docker");
-const { tokenFromHeader, verifyPayload, findById } = require("../lib/auth");
+const { requireAuth } = require("../lib/auth");
 
 const router = express.Router();
 
+function canAccess(user, server) {
+  if (!user || !server) return false;
+  if (user.role === "admin") return true;
+  const ownerId = server.ownerId || server.userId || null;
+  if (ownerId && ownerId === user.id) return true;
+  const ownerName = server.owner || server.username || null;
+  if (ownerName && ownerName === user.username) return true;
+  if (!ownerId && !ownerName) return true;
+  return false;
+}
+
+function loadServer(req, res, next) {
+  const server = store.get(req.params.id);
+  if (!server) return res.status(404).json({ error: "not found" });
+  if (!canAccess(req.user, server)) return res.status(403).json({ error: "forbidden" });
+  req.server = server;
+  next();
+}
+
+function validateEnv(env) {
+  if (env === undefined) return true;
+  if (typeof env !== "object" || env === null || Array.isArray(env)) return false;
+  return Object.values(env).every((v) => typeof v === "string");
+}
+
+router.use(requireAuth);
+
 router.get("/", (req, res) => {
-  res.json(store.list());
+  const all = store.list();
+  if (req.user.role === "admin") return res.json(all);
+  res.json(all.filter((s) => canAccess(req.user, s)));
 });
 
 router.post("/", async (req, res) => {
   const { game, name, env } = req.body || {};
   if (!game) return res.status(400).json({ error: "game is required" });
-  if (!name) return res.status(400).json({ error: "name is required" });
+  if (typeof name !== "string" || !name.trim())
+    return res.status(400).json({ error: "name is required" });
+  if (name.trim().length > 100)
+    return res.status(400).json({ error: "name must be at most 100 characters" });
+  if (!validateEnv(env))
+    return res.status(400).json({ error: "env must be an object of string values" });
   const egg = getEgg(game);
   if (!egg) return res.status(400).json({ error: `unknown game: ${game}` });
 
   let server = store.create({
-    name,
+    name: name.trim(),
     game,
     env: { ...egg.env, ...(env || {}) },
     ports: egg.ports,
     image: egg.image,
     status: "created",
     containerId: null,
-    ownerId: ownerIdFor(req),
+    ownerId: req.user.id,
   });
 
   try {
@@ -37,24 +71,12 @@ router.post("/", async (req, res) => {
   res.status(201).json(server);
 });
 
-router.get("/:id", (req, res) => {
-  const server = store.get(req.params.id);
-  if (!server) return res.status(404).json({ error: "not found" });
-  res.json(server);
+router.get("/:id", loadServer, (req, res) => {
+  res.json(req.server);
 });
 
-function ownerIdFor(req) {
-  const token = tokenFromHeader(req);
-  if (!token) return null;
-  const payload = verifyPayload(token);
-  if (!payload) return null;
-  const user = findById(payload.sub);
-  return user ? user.id : null;
-}
-
 async function lifecycle(req, res, action) {
-  const server = store.get(req.params.id);
-  if (!server) return res.status(404).json({ error: "not found" });
+  const server = req.server;
   try {
     const result = await docker[action](server);
     const updated = store.update(server.id, { status: result.status });
@@ -64,9 +86,9 @@ async function lifecycle(req, res, action) {
   }
 }
 
-router.post("/:id/start", (req, res) => lifecycle(req, res, "start"));
-router.post("/:id/stop", (req, res) => lifecycle(req, res, "stop"));
-router.post("/:id/restart", (req, res) => lifecycle(req, res, "restart"));
-router.post("/:id/kill", (req, res) => lifecycle(req, res, "kill"));
+router.post("/:id/start", loadServer, (req, res) => lifecycle(req, res, "start"));
+router.post("/:id/stop", loadServer, (req, res) => lifecycle(req, res, "stop"));
+router.post("/:id/restart", loadServer, (req, res) => lifecycle(req, res, "restart"));
+router.post("/:id/kill", loadServer, (req, res) => lifecycle(req, res, "kill"));
 
 module.exports = router;
