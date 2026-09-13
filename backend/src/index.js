@@ -7,7 +7,7 @@ const filesRouter = require("./routes/files");
 const playersRouter = require("./routes/players");
 const schedulesRouter = require("./routes/schedules");
 const backupsRouter = require("./routes/backups");
-const { requireAuth, requireAdmin } = require("./lib/auth");
+const { requireAuth, requireAdmin, assertJwtSecret } = require("./lib/auth");
 const { attachConsole } = require("./routes/console");
 const { listEggs } = require("./games/eggs");
 const docker = require("./lib/docker");
@@ -15,8 +15,24 @@ const docker = require("./lib/docker");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+});
+
+const frontendOrigin = process.env.FRONTEND_ORIGIN;
+if (frontendOrigin) {
+  const origins = frontendOrigin
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.use(cors({ origin: origins.length === 1 ? origins[0] : origins }));
+} else {
+  app.use(cors());
+}
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (req, res) => {
   res.json({ ok: true, mock: docker.isMock(), time: new Date().toISOString() });
@@ -43,6 +59,7 @@ app.get("/manage", (req, res) => {
 let httpServer = null;
 
 if (require.main === module) {
+  assertJwtSecret();
   docker.check().finally(() => {
     try {
       require("./routes/schedules").initSchedules();

@@ -3,8 +3,34 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 
 const USERS_FILE = path.resolve(__dirname, "../../../data/users.json");
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "7d";
+
+const WEAK_SECRETS = new Set([
+  "dev-secret-change-me",
+  "change-me-to-a-long-random-string",
+  "test-secret",
+  "changeme",
+  "secret",
+]);
+
+function getJwtSecret() {
+  return process.env.JWT_SECRET || "dev-secret-change-me";
+}
+
+function isProduction() {
+  return process.env.NODE_ENV === "production";
+}
+
+function assertJwtSecret() {
+  if (!isProduction()) return;
+  const s = process.env.JWT_SECRET;
+  if (!s || WEAK_SECRETS.has(s) || s.length < 16) {
+    console.error(
+      "FATAL: JWT_SECRET must be set to a long random value when NODE_ENV=production. Generate one with: openssl rand -hex 32"
+    );
+    process.exit(1);
+  }
+}
 
 function ensureFile() {
   const dir = path.dirname(USERS_FILE);
@@ -45,14 +71,14 @@ function findById(id) {
 function signToken(user) {
   return jwt.sign(
     { sub: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: JWT_EXPIRES }
   );
 }
 
 function verifyPayload(token) {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, getJwtSecret());
   } catch {
     return null;
   }
@@ -86,6 +112,9 @@ function requireAdmin(req, res, next) {
 
 module.exports = {
   USERS_FILE,
+  getJwtSecret,
+  isProduction,
+  assertJwtSecret,
   readUsers,
   writeUsers,
   findByUsername,

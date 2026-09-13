@@ -5,15 +5,57 @@ const { readUsers, writeUsers, toPublic, signToken, requireAuth } = require("../
 
 const router = express.Router();
 
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_MAX = 30;
+const rateBuckets = new Map();
+
+function getClientIp(req) {
+  const fwd = req.headers && req.headers["x-forwarded-for"];
+  if (typeof fwd === "string" && fwd.length > 0) return fwd.split(",")[0].trim();
+  if (req.ip) return String(req.ip);
+  if (req.socket && req.socket.remoteAddress) return String(req.socket.remoteAddress);
+  return "unknown";
+}
+
+function authRateLimit(req, res, next) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  let entry = rateBuckets.get(ip);
+  if (!entry || now >= entry.reset) {
+    entry = { count: 0, reset: now + RATE_WINDOW_MS };
+    rateBuckets.set(ip, entry);
+    if (rateBuckets.size > 10000) {
+      for (const [k, v] of rateBuckets) {
+        if (now >= v.reset) rateBuckets.delete(k);
+      }
+    }
+  }
+  entry.count += 1;
+  if (entry.count > RATE_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((entry.reset - now) / 1000));
+    res.set("Retry-After", String(retryAfter));
+    return res.status(429).json({ error: "too many requests, try again later" });
+  }
+  next();
+}
+
+function _resetRateLimitForTests() {
+  rateBuckets.clear();
+}
+
 function validUsername(u) {
   return typeof u === "string" && /^[a-zA-Z0-9_-]{3,32}$/.test(u);
 }
 
-router.post("/register", async (req, res) => {
+function validPassword(p) {
+  return typeof p === "string" && p.length >= 8;
+}
+
+router.post("/register", authRateLimit, async (req, res) => {
   const { username, password } = req.body || {};
   if (!validUsername(username)) return res.status(400).json({ error: "username must be 3-32 chars [a-zA-Z0-9_-]" });
-  if (typeof password !== "string" || password.length < 6)
-    return res.status(400).json({ error: "password must be at least 6 chars" });
+  if (!validPassword(password))
+    return res.status(400).json({ error: "password must be at least 8 chars" });
 
   const rows = readUsers();
   if (rows.find((u) => u.username === username))
@@ -33,7 +75,7 @@ router.post("/register", async (req, res) => {
   res.status(201).json({ token: signToken(user), user: toPublic(user) });
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", authRateLimit, async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "username and password required" });
   const user = readUsers().find((u) => u.username === username);
@@ -54,3 +96,4 @@ async function listUsers(req, res) {
 
 module.exports = router;
 module.exports.listUsers = listUsers;
+module.exports._resetRateLimitForTests = _resetRateLimitForTests;
