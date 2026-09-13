@@ -206,6 +206,50 @@ async function power(act) {
   finally { btns.forEach((b) => { b.disabled = false; }); }
 }
 
+function fmtMem(bytes) {
+  const v = Number(bytes);
+  if (!Number.isFinite(v) || v <= 0) return "0 B";
+  if (v < 1024 * 1024) return (v / 1024).toFixed(0) + " KB";
+  if (v < 1024 * 1024 * 1024) return (v / 1024 / 1024).toFixed(0) + " MiB";
+  return (v / 1024 / 1024 / 1024).toFixed(1) + " GiB";
+}
+
+function paintStats(d) {
+  if (!d) return;
+  const memPct = d.memLimit > 0 ? Math.min(100, (d.memUsed / d.memLimit) * 100) : 0;
+  const rm = $("resMem");
+  if (rm) rm.innerHTML = esc(fmtMem(d.memUsed)) + " <small>/ " + esc(fmtMem(d.memLimit)) + (d.mock ? " · sim" : "") + "</small>";
+  const rmb = $("resMemBar");
+  if (rmb) {
+    rmb.style.width = Math.max(3, memPct).toFixed(1) + "%";
+    rmb.parentElement.className = "bar " + (memPct > 88 ? "red" : memPct > 65 ? "amber" : "green");
+  }
+  const rmp = $("resMemPct");
+  if (rmp) rmp.textContent = memPct.toFixed(0) + "%";
+  const cpuShown = Math.min(999, d.cpuPct);
+  const rc = $("resCpu");
+  if (rc) rc.innerHTML = esc(cpuShown.toFixed(0) + "%") + " <small>/ " + esc(String(d.cpuLimit)) + " vCPU" + (d.mock ? " · sim" : "") + "</small>";
+  const rcb = $("resCpuBar");
+  if (rcb) {
+    const frac = d.cpuLimit > 0 ? Math.min(1, d.cpuPct / 100 / d.cpuLimit) : 0;
+    rcb.style.width = Math.max(3, frac * 100).toFixed(1) + "%";
+    rcb.parentElement.className = "bar " + (frac > 0.88 ? "red" : frac > 0.65 ? "amber" : "green");
+  }
+  const rcp = $("resCpuPct");
+  if (rcp) rcp.textContent = cpuShown.toFixed(0) + "%";
+}
+
+async function loadStats() {
+  try {
+    const d = await api("/api/servers/" + encodeURIComponent(serverId) + "/stats");
+    if (server && d.status && d.status !== server.status) {
+      server.status = d.status;
+      paintServer();
+    }
+    paintStats(d);
+  } catch { /* keep last values */ }
+}
+
 async function deleteServer() {
   if (!window.confirm("Delete this server? The container and all data will be removed. This cannot be undone.")) return;
   try {
@@ -737,6 +781,8 @@ async function init() {
   loadPlayers();
   loadSchedules();
   loadBackups();
+  loadStats();
+  setInterval(() => { if (!document.hidden) loadStats(); }, 5000);
 }
 
 document.addEventListener("DOMContentLoaded", init);

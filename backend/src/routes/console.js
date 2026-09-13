@@ -8,6 +8,25 @@ const { verifyPayload, findById, toPublic } = require("../lib/auth");
 const BASE = path.resolve(__dirname, "../../../data/servers");
 const MAX_LINES = 2000;
 
+// Live sockets per server so route handlers can push lines to
+// connected consoles outside the message flow (lifecycle, schedules).
+const live = new Map();
+
+function emitLine(id, line) {
+  const s = String(line);
+  appendLine(String(id), s);
+  trimFile(String(id));
+  const set = live.get(String(id));
+  if (!set) return;
+  for (const ws of set) {
+    try {
+      if (ws.readyState === ws.OPEN) ws.send(s);
+    } catch {
+      return;
+    }
+  }
+}
+
 function consoleFile(id) {
   return path.join(BASE, String(id), "console.log");
 }
@@ -288,4 +307,4 @@ function attachConsole(httpServer) {
   return wss;
 }
 
-module.exports = { attachConsole, canAccess, consoleFile };
+module.exports = { attachConsole, canAccess, consoleFile, emitLine };

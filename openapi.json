@@ -326,6 +326,39 @@
         }
       }
     },
+    "/api/servers/{id}/stats": {
+      "get": {
+        "tags": [
+          "servers"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CPU/memory usage. Live container stats when Docker is attached, simulated values (mock:true) otherwise; zeros when stopped."
+          },
+          "403": {
+            "description": "Not the owner (non-admin)"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
     "/api/servers/{id}/files": {
       "get": {
         "tags": [
