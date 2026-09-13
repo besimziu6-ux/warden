@@ -243,8 +243,18 @@ function attachConsole(httpServer) {
         }
       }
       let n = mem.length;
+      let announcedOffline = false;
       timer = setInterval(() => {
         if (closed) return;
+        const cur = store.get(id);
+        if (!cur || cur.status !== "running") {
+          if (!announcedOffline) {
+            announcedOffline = true;
+            record("[console] server offline — start it to stream logs (mock mode: no container attached)");
+          }
+          return;
+        }
+        announcedOffline = false;
         n += 1;
         record(`[mock] ${new Date().toISOString()} server=${id} tick=${n}`);
       }, 1500);

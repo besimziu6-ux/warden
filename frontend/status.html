@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status — Warden</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M16 5 7 9v7c0 5 3.8 8.4 9 11 5.2-2.6 9-6 9-11V9l-9-4Z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='14.5' r='2.4' fill='white'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="layout">
+  <aside class="sidebar" aria-label="Primary">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6.5v5.2c0 4 3 6.9 7.5 9.3 4.5-2.4 7.5-5.3 7.5-9.3V6.5L12 3Z"/><circle cx="12" cy="11" r="2"/></svg>
+      </div>
+      <div class="brand-name">WARDEN<small>GAME PANEL</small></div>
+    </div>
+    <nav class="sidenav">
+      <div class="nav-label">General</div>
+      <a class="navlink" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="navlink active" href="/status.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        API health
+      </a>
+    </nav>
+    <div class="side-foot">
+      <div class="node-card"><span class="dot" id="sideDot"></span><span id="sideNodeText">Checking…</span></div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="ghost small iconbtn" id="navToggle" type="button" aria-label="Toggle navigation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="crumbs"><a href="/">Home</a><span class="sep">/</span><b>Status</b></div>
+      <div class="spacer"></div>
+      <button class="ghost small" id="refreshBtn" type="button">Refresh</button>
+    </header>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Node status</h1>
+          <p>Backend health, driver mode and game eggs.</p>
+        </div>
+        <span class="pill" id="statusPill">checking…</span>
+      </div>
+      <div class="stat-strip">
+        <div class="stat"><div class="ic green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14l-3-3"/></svg></div><div><b id="statOk">–</b><span>API reachable</span></div></div>
+        <div class="stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11h16M4 11a8 8 0 0 1 16 0M12 3v8"/></svg></div><div><b id="statDriver">–</b><span>Driver</span></div></div>
+        <div class="stat"><div class="ic amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/></svg></div><div><b id="statEggs">–</b><span>Game eggs</span></div></div>
+        <div class="stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><b id="statTime" style="font-size:14px">–</b><span>Server time</span></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Raw response</h3><span class="sub"><code class="inline">GET /health</code> — kept as JSON for monitors and uptime checks</span></div>
+        <div class="card-pad"><pre class="dump" id="rawDump">loading…</pre></div>
+      </div>
+      <div class="foot">Warden · local node</div>
+    </div>
+  </div>
+</div>
+<div id="toast" aria-live="polite"></div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+async function load() {
+  const pill = $("statusPill");
+  try {
+    const h = await fetch("/health").then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+    $("statOk").textContent = h.ok ? "Online" : "Degraded";
+    $("statDriver").textContent = h.mock ? "Mock" : "Docker";
+    $("statDriver").parentElement.previousElementSibling.className = "ic " + (h.mock ? "amber" : "green");
+    $("statTime").textContent = h.time ? new Date(h.time).toLocaleString() : "–";
+    $("rawDump").textContent = JSON.stringify(h, null, 2);
+    pill.textContent = h.ok ? "operational" : "degraded";
+    pill.className = "pill " + (h.ok ? "running" : "error");
+    $("sideNodeText").textContent = "Local node · " + (h.mock ? "mock driver" : "docker live");
+    $("sideDot").classList.remove("dim");
+  } catch (e) {
+    $("statOk").textContent = "Offline";
+    $("rawDump").textContent = "Unreachable: " + e.message;
+    pill.textContent = "offline";
+    pill.className = "pill error";
+    $("sideNodeText").textContent = "Local node · unreachable";
+    $("sideDot").classList.add("dim");
+  }
+  try {
+    const token = localStorage.getItem("warden_token") || localStorage.getItem("gp_token") || "";
+    const headers = token ? { Authorization: "Bearer " + token } : {};
+    const games = await fetch("/api/games", { headers }).then((r) => { if (!r.ok) throw new Error(); return r.json(); });
+    $("statEggs").textContent = String(Array.isArray(games) ? games.length : "–");
+  } catch { $("statEggs").textContent = "–"; }
+}
+$("refreshBtn").addEventListener("click", load);
+$("navToggle").addEventListener("click", () => document.body.classList.toggle("navopen"));
+$("navOverlay").addEventListener("click", () => document.body.classList.remove("navopen"));
+document.addEventListener("DOMContentLoaded", load);
+</script>
+</body>
+</html>
