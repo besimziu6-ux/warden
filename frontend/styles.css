@@ -408,9 +408,10 @@ select {
 .consolebar { display: flex; gap: 0; align-items: stretch; margin-top: 12px; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: #0a101d; }
 .consolebar .prompt {
   display: grid; place-items: center; padding: 0 13px;
-  color: var(--green); font-family: var(--mono); font-weight: 800; font-size: 15px;
+  color: var(--green);
   background: rgba(16, 185, 129, 0.08); border-right: 1px solid var(--border);
 }
+.consolebar .prompt svg { width: 15px; height: 15px; }
 .consolebar input { border: none; border-radius: 0; background: transparent; font-family: var(--mono); flex: 1; min-width: 140px; }
 .consolebar input:focus { box-shadow: none; }
 .consolebar button { border-radius: 0; border: none; border-left: 1px solid var(--border); }
@@ -432,9 +433,19 @@ tbody tr:hover { background: rgba(59, 130, 246, 0.05); }
 .fname { display: flex; align-items: center; gap: 9px; font-weight: 600; }
 .fname .fic {
   width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
-  display: grid; place-items: center; font-size: 13px;
+  display: grid; place-items: center;
   background: #16213a; border: 1px solid var(--border);
+  color: #8d9ab3;
 }
+.fname .fic svg { width: 15px; height: 15px; }
+.fname .fic.dir { color: #60a5fa; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.35); }
+.fname .fic.arc { color: #fbbf24; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.32); }
+.fname .fic.doc { color: #94a3b8; }
+.fname .fic.img { color: #34d399; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.32); }
+.fname .fic.user { color: #22d3ee; background: rgba(34, 211, 238, 0.09); border-color: rgba(34, 211, 238, 0.3); }
+.fname .fic.up { color: #8d9ab3; }
+.chev { display: inline-grid; place-items: center; color: var(--faint); }
+.chev svg { width: 18px; height: 18px; }
 .crumb { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .crumb button { padding: 5px 10px; font-size: 12px; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
@@ -495,10 +506,9 @@ tbody tr:hover { background: rgba(59, 130, 246, 0.05); }
 .gamecard:hover { border-color: var(--border2); background: #0e1730; }
 .gamecard.sel { border-color: var(--accent); background: var(--accent-soft); }
 .gamecard.sel::after {
-  content: "✓"; position: absolute; top: 10px; right: 10px;
+  content: ""; position: absolute; top: 10px; right: 10px;
   width: 20px; height: 20px; border-radius: 99px;
-  background: var(--accent); color: #fff; font-size: 12px; font-weight: 800;
-  display: grid; place-items: center;
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/11px no-repeat;
 }
 .gamecard b { display: flex; gap: 9px; align-items: center; font-size: 13.5px; margin-bottom: 3px; padding-right: 24px; }
 .gamecard .gicon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 800; background: #1a2540; border: 1px solid var(--border2); flex-shrink: 0; }

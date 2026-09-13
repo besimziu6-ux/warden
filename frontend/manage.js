@@ -311,12 +311,21 @@ async function listFiles(path) {
   }
 }
 
-function fileIcon(f) {
-  if (f.type === "dir") return "📁";
+const ICONS = {
+  dir: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/></svg>",
+  arc: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z'/><path d='m3.3 7 8.7 5 8.7-5M12 22V12'/></svg>",
+  doc: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/><path d='M14 2v4a2 2 0 0 0 2 2h4'/></svg>",
+  img: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21'/></svg>",
+  user: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>",
+  up: "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 19V5M5 12l7-7 7 7'/></svg>",
+};
+
+function fileTile(f) {
+  if (f.type === "dir") return "<span class='fic dir'>" + ICONS.dir + "</span>";
   const n = String(f.name || "").toLowerCase();
-  if (n.endsWith(".jar") || n.endsWith(".zip") || n.endsWith(".tgz") || n.endsWith(".gz")) return "📦";
-  if (n.endsWith(".log") || n.endsWith(".txt") || n.endsWith(".yml") || n.endsWith(".yaml") || n.endsWith(".json") || n.endsWith(".properties") || n.endsWith(".conf") || n.endsWith(".cfg")) return "📄";
-  return "📄";
+  if (/(jar|zip|tgz|gz|tar|rar|7z)$/.test(n)) return "<span class='fic arc'>" + ICONS.arc + "</span>";
+  if (/(png|jpg|jpeg|gif|webp|ico|bmp)$/.test(n)) return "<span class='fic img'>" + ICONS.img + "</span>";
+  return "<span class='fic doc'>" + ICONS.doc + "</span>";
 }
 
 function renderFiles(entries) {
@@ -329,9 +338,9 @@ function renderFiles(entries) {
   });
   crumb.innerHTML = html;
   const body = $("filesBody");
-  const up = curPath ? "<tr><td><a href='#' data-up>⬆ ..</a></td><td></td><td></td><td></td></tr>" : "";
+  const up = curPath ? "<tr><td><a href='#' data-up><span class='fname'><span class='fic up'>" + ICONS.up + "</span>..</span></a></td><td></td><td></td><td></td></tr>" : "";
   body.innerHTML = up + entries.map((f) =>
-    "<tr><td><span class='fname'><span class='fic'>" + fileIcon(f) + "</span>" + (f.type === "dir"
+    "<tr><td><span class='fname'>" + fileTile(f) + (f.type === "dir"
       ? "<a href='#' data-dir='" + esc(f.path) + "'>" + esc(f.name) + "/</a>"
       : "<a href='#' data-file='" + esc(f.path) + "'>" + esc(f.name) + "</a>") + "</span></td>" +
     "<td class='muted'>" + esc(fmtSize(f.size)) + "</td><td class='muted'>" + esc(fmtDate(f.mtime)) + "</td>" +
@@ -375,7 +384,7 @@ async function loadPlayers() {
     if (cp) cp.textContent = String(rows.length);
     body.innerHTML = rows.length ? rows.map((p) => {
       const name = typeof p === "string" ? p : (p.name || p.username || JSON.stringify(p));
-      return "<tr><td><span class='fname'><span class='fic'>🎮</span>" + esc(name) + "</span></td><td><div class='row'>" +
+      return "<tr><td><span class='fname'><span class='fic user'>" + ICONS.user + "</span>" + esc(name) + "</span></td><td><div class='row'>" +
         "<button class='ghost small' data-kick='" + esc(name) + "' type='button'>Kick</button>" +
         "<button class='ghost small' data-ban='" + esc(name) + "' type='button'>Ban</button>" +
         "<button class='ghost small' data-op='" + esc(name) + "' type='button'>Op</button></div></td></tr>";

@@ -165,7 +165,7 @@ function serverRow(s) {
     "<svg viewBox='0 0 24 24' fill='currentColor'><path d='M8 5v14l11-7z'/></svg></button>" +
     "<button class='qbtn' data-act='stop' data-id='" + esc(s.id) + "' type='button' title='Stop' aria-label='Stop " + esc(s.name) + "'>" +
     "<svg viewBox='0 0 24 24' fill='currentColor'><rect x='6' y='6' width='12' height='12' rx='2'/></svg></button>" +
-    "<span class='chev'>›</span></div></a>";
+    "<span class='chev'><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m9 18 6-6-6-6'/></svg></span></div></a>";
 }
 
 function renderStats() {
@@ -307,9 +307,9 @@ function addEnvRow(k, v) {
   vInput.value = v || "";
   vInput.setAttribute("aria-label", "Variable value");
   const btn = document.createElement("button");
-  btn.className = "ghost small";
+  btn.className = "ghost small iconbtn";
   btn.type = "button";
-  btn.textContent = "✕";
+  btn.innerHTML = "<svg width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round'><path d='M18 6 6 18M6 6l12 12'/></svg>";
   btn.setAttribute("aria-label", "Remove variable");
   btn.addEventListener("click", () => div.remove());
   div.append(kInput, vInput, btn);
