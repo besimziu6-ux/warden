@@ -23,17 +23,63 @@ const DEFAULT_LIMITS = {
   User: "1000:1000",
 };
 
+// Floor values that would produce a broken or rejected container config.
+const MIN_LIMITS = {
+  Memory: 128 * 1024 * 1024,
+  NanoCpus: 50 * 1000 * 1000,
+  PidsLimit: 32,
+};
+
+function toFiniteNumber(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function dataRoot() {
   return process.env.DATA_ROOT || path.resolve(__dirname, "../../../data");
 }
 
 function limitsFor(server) {
   const over = (server && server.limits) || {};
+
+  const memory = Math.max(
+    Math.floor(toFiniteNumber(over.Memory ?? over.memory ?? DEFAULT_LIMITS.Memory, DEFAULT_LIMITS.Memory)),
+    MIN_LIMITS.Memory
+  );
+
+  // Docker rejects a container whose swap limit sits below its memory limit.
+  let memorySwap = Math.floor(
+    toFiniteNumber(over.MemorySwap ?? over.memorySwap ?? DEFAULT_LIMITS.MemorySwap, DEFAULT_LIMITS.MemorySwap)
+  );
+  if (memorySwap < memory) memorySwap = memory;
+
+  // Each branch resolved on its own so an unrelated override (e.g. only
+  // Memory) cannot drag NanoCpus into the computed path.
+  const nanoExplicit = over.NanoCpus ?? over.nanoCpus;
+  const cpusExplicit = over.cpus ?? over.Cpus;
+  let nanoRaw;
+  if (nanoExplicit !== undefined) {
+    nanoRaw = toFiniteNumber(nanoExplicit, DEFAULT_LIMITS.NanoCpus);
+  } else if (cpusExplicit !== undefined) {
+    const cpus = toFiniteNumber(cpusExplicit, NaN);
+    nanoRaw = Number.isFinite(cpus) ? cpus * 1e9 : DEFAULT_LIMITS.NanoCpus;
+  } else {
+    nanoRaw = DEFAULT_LIMITS.NanoCpus;
+  }
+  const nanoCpus = Math.max(Math.floor(nanoRaw), MIN_LIMITS.NanoCpus);
+
+  const pidsLimit = Math.max(
+    Math.floor(
+      toFiniteNumber(over.PidsLimit ?? over.pidsLimit ?? over.pids ?? DEFAULT_LIMITS.PidsLimit, DEFAULT_LIMITS.PidsLimit)
+    ),
+    MIN_LIMITS.PidsLimit
+  );
+
   return {
-    Memory: over.Memory || over.memory || DEFAULT_LIMITS.Memory,
-    MemorySwap: over.MemorySwap || over.memorySwap || DEFAULT_LIMITS.MemorySwap,
-    NanoCpus: over.NanoCpus || over.nanoCpus || over.cpus ? Math.floor((over.NanoCpus || over.nanoCpus || over.cpus * 1e9)) : DEFAULT_LIMITS.NanoCpus,
-    PidsLimit: over.PidsLimit || over.pidsLimit || over.pids || DEFAULT_LIMITS.PidsLimit,
+    Memory: memory,
+    MemorySwap: memorySwap,
+    NanoCpus: nanoCpus,
+    PidsLimit: pidsLimit,
     User: over.User || over.user || DEFAULT_LIMITS.User,
   };
 }
@@ -244,6 +290,7 @@ module.exports = {
   removeServer,
   inspectStatus,
   DEFAULT_LIMITS,
+  MIN_LIMITS,
   limitsFor,
   getMockState,
   _resetForTests() {

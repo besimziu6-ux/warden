@@ -31,8 +31,8 @@ describe("lifecycle state machine (docker mock)", () => {
   });
 
   it("honours per-server limit overrides", () => {
-    const limits = docker.limitsFor({ id: "x", limits: { Memory: 1024, User: "2000:2000" } });
-    assert.equal(limits.Memory, 1024);
+    const limits = docker.limitsFor({ id: "x", limits: { Memory: 4 * TWO_GIB, User: "2000:2000" } });
+    assert.equal(limits.Memory, 4 * TWO_GIB);
     assert.equal(limits.User, "2000:2000");
     assert.equal(limits.PidsLimit, 256);
   });
