@@ -136,6 +136,18 @@ async function send(server, command) {
   if (!cmd) throw new Error("command is required");
   const cfg = getConfig(server);
   if (!cfg) {
+    const base = cmd.split(/\s+/)[0].toLowerCase();
+    if (base === "list") {
+      const data = ensureMock(server.id);
+      return {
+        ok: true,
+        mock: true,
+        response: `There are ${data.players.length} of a max of 20 players online: ${data.players.join(", ") || "none"}`,
+      };
+    }
+    if (base === "help") {
+      return { ok: true, mock: true, response: "Available commands: list, kick, ban, op, say" };
+    }
     return { ok: true, mock: true, response: `[mock] executed: ${cmd}` };
   }
   const response = await sendRconPacket(cfg.host, cfg.port, cfg.password, cmd);

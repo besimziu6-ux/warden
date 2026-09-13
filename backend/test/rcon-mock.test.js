@@ -86,10 +86,16 @@ describe("rcon mock flows", () => {
   it("send returns mock response and requires a command", async () => {
     const srv = mockServer("send");
     try {
-      const r = await rcon.send(srv, "list");
+      let r = await rcon.send(srv, "say hello");
       assert.equal(r.ok, true);
       assert.equal(r.mock, true);
-      assert.match(r.response, /\[mock\] executed: list/);
+      assert.match(r.response, /\[mock\] executed: say hello/);
+      r = await rcon.send(srv, "list");
+      assert.equal(r.ok, true);
+      assert.equal(r.mock, true);
+      assert.match(r.response, /There are 2 of a max of 20 players online: Steve, Alex/);
+      r = await rcon.send(srv, "help");
+      assert.match(r.response, /Available commands/);
       await assert.rejects(() => rcon.send(srv, ""), /command is required/);
       await assert.rejects(() => rcon.send(srv, "   "), /command is required/);
     } finally {

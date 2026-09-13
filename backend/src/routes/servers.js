@@ -92,7 +92,10 @@ async function lifecycle(req, res, action) {
     if (action === "start" && result.mock) {
       const egg = getEgg(server.game);
       if (egg && egg.startup) emitLine(server.id, `[mock] executing startup: ${egg.startup}`);
+      emitBoot(server);
     }
+    if (action === "restart" && result.mock) emitBoot(server);
+    if (action === "stop") emitLine(server.id, "[mock] stopping server...");
     emitLine(
       server.id,
       result.mock
@@ -104,6 +107,58 @@ async function lifecycle(req, res, action) {
     emitLine(server.id, `[warden] ${action} failed: ${String(err.message || err)}`);
     res.status(500).json({ error: String(err.message || err) });
   }
+}
+
+const BOOT_LINES = {
+  "minecraft-java": [
+    "[Server] Starting minecraft server version 1.21 (Paper)",
+    "[Server] Loading level \"world\"",
+    "[Server] Preparing start region for dimension minecraft:overworld",
+    "[Server] Running delayed init tasks",
+    "[Server] Done in 3.1s! For help, type \"help\"",
+  ],
+  "minecraft-bedrock": [
+    "[Server] Starting Bedrock server version 1.21.0",
+    "[Server] Level \"Bedrock level\" loaded",
+    "[Server] Server started on 0.0.0.0:19132",
+  ],
+  cs2: [
+    "[Server] Dedicated server starting (cs2)",
+    "[Server] Loading map de_dust2",
+    "[Server] GC token generated, game server online",
+  ],
+  rust: [
+    "[Server] Loading Oxide Core v2...",
+    "[Server] Loading save file",
+    "[Server] Server startup complete",
+  ],
+  ark: [
+    "[Server] Primal game data loaded",
+    "[Server] TheIsland started, listening on 7777/udp",
+  ],
+  valheim: [
+    "[Server] Loaded world \"Dedicated\"",
+    "[Server] Game server connected, public 1",
+  ],
+  terraria: [
+    "[Server] Loading world \"world\"",
+    "[Server] Server started on 0.0.0.0:7777",
+  ],
+};
+
+function emitBoot(server) {
+  const lines = BOOT_LINES[server.game] || [
+    `[Server] Starting ${server.game || "game"} server...`,
+    "[Server] Loading world",
+    "[Server] Done! Server is online",
+  ];
+  lines.forEach((line, i) => {
+    const t = setTimeout(() => {
+      const cur = store.get(server.id);
+      if (cur && cur.status === "running") emitLine(server.id, `[mock] ${line}`);
+    }, 400 * (i + 1));
+    if (t.unref) t.unref();
+  });
 }
 
 function hashStr(s) {
