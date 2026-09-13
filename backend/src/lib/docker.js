@@ -195,6 +195,29 @@ async function kill(server) {
   return { status: "killed", mock: false };
 }
 
+async function removeServer(server) {
+  await check();
+  if (mock || !client) {
+    states.delete(server.id);
+    return { status: "removed", mock: true };
+  }
+  const c = await getContainer(server);
+  if (c) {
+    try {
+      await c.stop({ t: 10 });
+    } catch (err) {
+      if (err.statusCode !== 304 && err.statusCode !== 404) throw err;
+    }
+    try {
+      await c.remove({ force: true });
+    } catch (err) {
+      if (err.statusCode !== 404) throw err;
+    }
+  }
+  states.delete(server.id);
+  return { status: "removed", mock: false };
+}
+
 async function inspectStatus(server) {
   await check();
   if (mock || !client) return getMockState(server);
@@ -218,6 +241,7 @@ module.exports = {
   stop,
   restart,
   kill,
+  removeServer,
   inspectStatus,
   DEFAULT_LIMITS,
   limitsFor,

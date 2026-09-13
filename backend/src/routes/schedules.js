@@ -84,7 +84,7 @@ function stopJobsForServer(serverId) {
       try {
         if (job) job.stop();
       } catch {
-        return;
+        // fall through to cleanup
       }
       jobs.delete(key);
     }
@@ -206,3 +206,4 @@ module.exports.writeSchedules = writeSchedules;
 module.exports.scheduleServer = scheduleServer;
 module.exports.initSchedules = initSchedules;
 module.exports.runAction = runAction;
+module.exports.stopJobsForServer = stopJobsForServer;

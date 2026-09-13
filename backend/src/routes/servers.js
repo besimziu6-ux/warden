@@ -1,10 +1,15 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const { getEgg } = require("../games/eggs");
 const store = require("../lib/store");
 const docker = require("../lib/docker");
 const { requireAuth } = require("../lib/auth");
 
 const router = express.Router();
+
+const SERVERS_BASE = path.resolve(__dirname, "../../../data/servers");
+const BACKUPS_BASE = path.resolve(__dirname, "../../../data/backups");
 
 function canAccess(user, server) {
   if (!user || !server) return false;
@@ -90,5 +95,31 @@ router.post("/:id/start", loadServer, (req, res) => lifecycle(req, res, "start")
 router.post("/:id/stop", loadServer, (req, res) => lifecycle(req, res, "stop"));
 router.post("/:id/restart", loadServer, (req, res) => lifecycle(req, res, "restart"));
 router.post("/:id/kill", loadServer, (req, res) => lifecycle(req, res, "kill"));
+
+router.delete("/:id", loadServer, async (req, res) => {
+  const id = req.server.id;
+  try {
+    await docker.removeServer(req.server);
+  } catch (err) {
+    return res.status(500).json({ error: String(err.message || err) });
+  }
+  try {
+    require("./schedules").stopJobsForServer(id);
+  } catch {
+    // no cron jobs to stop
+  }
+  try {
+    fs.rmSync(path.join(SERVERS_BASE, String(id)), { recursive: true, force: true });
+  } catch {
+    // best effort cleanup
+  }
+  try {
+    fs.rmSync(path.join(BACKUPS_BASE, String(id)), { recursive: true, force: true });
+  } catch {
+    // best effort cleanup
+  }
+  store.remove(id);
+  res.json({ ok: true });
+});
 
 module.exports = router;

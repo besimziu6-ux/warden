@@ -251,6 +251,37 @@
             "description": "Not found"
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "servers"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted; container stopped/removed, data dirs removed"
+          },
+          "403": {
+            "description": "Not the owner (non-admin)"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
       }
     },
     "/api/servers/{id}/{action}": {

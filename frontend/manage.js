@@ -104,6 +104,18 @@ async function power(act) {
   } catch (e) { toast(e.message, "err"); }
 }
 
+async function deleteServer() {
+  if (!window.confirm("Delete this server? The container and all data will be removed. This cannot be undone.")) return;
+  try {
+    await api("/api/servers/" + encodeURIComponent(serverId), { method: "DELETE" });
+    toast("Server deleted", "ok");
+    window.location.href = "/";
+  } catch (e) {
+    if (e.status === 401) { needLogin(); return; }
+    toast(e.message, "err");
+  }
+}
+
 /* ---- console ---- */
 function autoScrollOn() {
   const t = $("autoScrollTgl");
@@ -329,6 +341,10 @@ function bind() {
     const b = e.target.closest("button[data-act]");
     if (b) power(b.dataset.act);
   });
+  const delBtn = $("deleteServerBtn");
+  if (delBtn) delBtn.addEventListener("click", deleteServer);
+  const delBtn2 = $("deleteServerBtn2");
+  if (delBtn2) delBtn2.addEventListener("click", deleteServer);
   $("consoleSend").addEventListener("click", () => sendConsole($("consoleInput").value));
   $("consoleInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendConsole(e.target.value); });
   $("consoleClear").addEventListener("click", () => {
