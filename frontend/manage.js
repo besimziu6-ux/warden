@@ -303,12 +303,38 @@ async function createSchedule() {
 }
 
 /* ---- backups ---- */
+async function downloadBackup(backupId) {
+  try {
+    const res = await fetch("/api/servers/" + encodeURIComponent(serverId) + "/backups/" + encodeURIComponent(backupId) + "/download", {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      throw new Error((d && d.error) || ("download failed: " + res.status));
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = backupId;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast("Backup download started", "ok");
+  } catch (e) {
+    if (e.status === 401) { needLogin(); return; }
+    toast(e.message, "err");
+  }
+}
+
 async function loadBackups() {
   try {
     const rows = await api("/api/servers/" + encodeURIComponent(serverId) + "/backups");
     $("backupBody").innerHTML = rows.length ? rows.map((b) =>
       "<tr><td>" + esc(b.name) + "</td><td>" + esc(b.size) + "</td><td>" + esc(b.createdAt || "") + "</td>" +
-      "<td><div class='row'><button class='ghost small' data-restore='" + esc(b.id) + "'>Restore</button>" +
+      "<td><div class='row'><button class='ghost small' data-dl='" + esc(b.id) + "'>Download</button>" +
+      "<button class='ghost small' data-restore='" + esc(b.id) + "'>Restore</button>" +
       "<button class='danger small' data-bdel='" + esc(b.id) + "'>Delete</button></div></td></tr>"
     ).join("") : "<tr><td colspan='4' class='muted'>No backups</td></tr>";
   } catch (e) {
@@ -520,9 +546,13 @@ function bind() {
   const nt = $("navToggle");
   if (nt) nt.addEventListener("click", () => document.body.classList.toggle("navopen"));
   $("backupBody").addEventListener("click", async (e) => {
+    const dl = e.target.closest("[data-dl]");
     const r = e.target.closest("[data-restore]");
     const d = e.target.closest("[data-bdel]");
-    if (r) {
+    if (dl) {
+      e.preventDefault();
+      downloadBackup(dl.dataset.dl);
+    } else if (r) {
       if (!window.confirm("Restore backup " + r.dataset.restore + "? Current files will be overwritten.")) return;
       try {
         await api("/api/servers/" + encodeURIComponent(serverId) + "/backups/" + encodeURIComponent(r.dataset.restore) + "/restore", { method: "POST" });

@@ -43,6 +43,17 @@ function serverRoot(id) {
   return path.join(SERVERS_BASE, String(id));
 }
 
+const MAX_BACKUPS_PER_SERVER = 10;
+
+function isUnsafeTarEntry(p) {
+  if (!p) return true;
+  const s = String(p);
+  if (path.isAbsolute(s)) return true;
+  const parts = s.split(/[\\/]+/);
+  if (parts.includes("..")) return true;
+  return false;
+}
+
 function safeBackupName(name) {
   const base = path.basename(String(name || ""));
   if (!base || base === "." || base === "..") return null;
@@ -72,6 +83,26 @@ function listBackups(id) {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
+function pruneBackups(id) {
+  const items = listBackups(id);
+  if (items.length <= MAX_BACKUPS_PER_SERVER) return [];
+  const asc = [...items].sort((a, b) => {
+    if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+    return a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
+  });
+  const excess = items.length - MAX_BACKUPS_PER_SERVER;
+  const pruned = [];
+  for (let i = 0; i < excess; i++) {
+    try {
+      fs.rmSync(path.join(backupDir(id), asc[i].file), { force: true });
+      pruned.push(asc[i].file);
+    } catch {
+      /* noop */
+    }
+  }
+  return pruned;
+}
+
 async function createBackup(server, opts) {
   if (!tar) throw new Error("tar package not installed");
   const id = server.id;
@@ -81,11 +112,17 @@ async function createBackup(server, opts) {
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const label = opts && opts.name ? String(opts.name).replace(/[^a-zA-Z0-9-_]+/g, "-").slice(0, 40) : "backup";
-  const file = `${stamp}-${label}.tgz`;
-  const dest = path.join(dir, file);
+  let file = `${stamp}-${label}.tgz`;
+  let dest = path.join(dir, file);
+  for (let n = 1; n < 1000 && fs.existsSync(dest); n++) {
+    file = `${stamp}-${label}-${n}.tgz`;
+    dest = path.join(dir, file);
+  }
   await tar.c({ gzip: true, file: dest, cwd: root }, ["."]);
+  const pruned = pruneBackups(id);
   const st = fs.statSync(dest);
-  return { id: file, name: file, file, size: st.size, createdAt: st.mtime.toISOString() };
+  const count = listBackups(id).length;
+  return { id: file, name: file, file, size: st.size, createdAt: st.mtime.toISOString(), count, pruned };
 }
 
 async function restoreBackup(server, backupId) {
@@ -100,8 +137,19 @@ async function restoreBackup(server, backupId) {
   }
   const root = serverRoot(server.id);
   fs.mkdirSync(root, { recursive: true });
-  await tar.x({ file: src, C: root });
-  return { ok: true, restored: name };
+  let skipped = 0;
+  await tar.x({
+    file: src,
+    C: root,
+    filter: (p) => {
+      if (isUnsafeTarEntry(p)) {
+        skipped++;
+        return false;
+      }
+      return true;
+    },
+  });
+  return { ok: true, restored: name, skipped };
 }
 
 router.use(requireAuth);
@@ -133,6 +181,23 @@ router.post("/:id/backups/:backupId/restore", loadServer, async (req, res) => {
   }
 });
 
+router.get("/:id/backups/:backupId/download", loadServer, (req, res) => {
+  const name = safeBackupName(req.params.backupId);
+  if (!name) return res.status(400).json({ error: "invalid backup id" });
+  const full = path.join(backupDir(req.server.id), name);
+  try {
+    if (!fs.existsSync(full)) return res.status(404).json({ error: "not found" });
+    const st = fs.statSync(full);
+    if (!st.isFile()) return res.status(404).json({ error: "not found" });
+    res.setHeader("Content-Type", "application/gzip");
+    res.setHeader("Content-Disposition", 'attachment; filename="' + name + '"');
+    res.setHeader("Content-Length", String(st.size));
+    fs.createReadStream(full).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
 router.delete("/:id/backups/:backupId", loadServer, (req, res) => {
   const name = safeBackupName(req.params.backupId);
   if (!name) return res.status(400).json({ error: "invalid backup id" });
@@ -152,3 +217,6 @@ module.exports = router;
 module.exports.createBackup = createBackup;
 module.exports.restoreBackup = restoreBackup;
 module.exports.listBackups = listBackups;
+module.exports.pruneBackups = pruneBackups;
+module.exports.isUnsafeTarEntry = isUnsafeTarEntry;
+module.exports.MAX_BACKUPS_PER_SERVER = MAX_BACKUPS_PER_SERVER;
